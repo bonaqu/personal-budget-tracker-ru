@@ -869,9 +869,15 @@
             setCredentials(login, password) {
                 _credentials = { login, token: password };
             },
-            getLogin() { return _credentials ? _credentials.login : null; },
-            _getToken() { return _credentials ? _credentials.token : null; },
-            isAuthenticated() { return !!_credentials; },
+            getLogin() {
+                return _credentials ? _credentials.login : null;
+            },
+            _getToken() {
+                return _credentials ? _credentials.token : null;
+            },
+            isAuthenticated() {
+                return !!_credentials;
+            },
             logout() {
                 _credentials = null;
                 Store.reset();
@@ -888,30 +894,59 @@
             const options = { method, headers };
             if (body) options.body = JSON.stringify(body);
 
+            let response;
+
             try {
-                const response = await fetch(`${CONFIG.API_BASE}${endpoint}`, options);
+                response = await fetch(`${CONFIG.API_BASE}${endpoint}`, options);
+            } catch (e) {
+                // Реальный сетевой фейл
+                throw new Error('OFFLINE');
+            }
+
+            if (!response.ok) {
+                // ❗ AUTH ≠ NETWORK
                 if (response.status === 401 || response.status === 403) {
-                    Auth.logout();
                     throw new Error('AUTH_ERROR');
                 }
-                if (!response.ok) throw new Error(`HTTP_${response.status}`);
-                return response;
-            } catch (error) {
-                if (error.name === 'TypeError' || error.message === 'Failed to fetch') {
-                    throw new Error('OFFLINE');
+                throw new Error(`HTTP_${response.status}`);
+            }
+
+            return response;
+        },
+
+        async login(login, password) {
+            return this.request('/login', 'POST', { login, password });
+        },
+
+        async register(login, password) {
+            return this.request('/register', 'POST', { login, password });
+        },
+
+        async loadData(login) {
+            try {
+                const res = await this.request(`/load?login=${encodeURIComponent(login)}`);
+                return res.json();
+            } catch (e) {
+                if (e.message === 'AUTH_ERROR') {
+                    Auth.logout();
                 }
-                throw error;
+                throw e;
             }
         },
 
-        async login(login, password) { return this.request('/login', 'POST', { login, password }); },
-        async register(login, password) { return this.request('/register', 'POST', { login, password }); },
-        async loadData(login) {
-            const res = await this.request(`/load?login=${encodeURIComponent(login)}`);
-            return res.json();
-        },
         async saveData(login, token, data) {
-            return this.request('/save', 'POST', { login: login, password: token, data: data });
+            try {
+                return await this.request('/save', 'POST', {
+                    login,
+                    password: token,
+                    data
+                });
+            } catch (e) {
+                if (e.message === 'AUTH_ERROR') {
+                    Auth.logout();
+                }
+                throw e;
+            }
         }
     };
 
@@ -940,53 +975,70 @@
 
         goOnline() {
             if (!Auth.isAuthenticated()) return;
+
             this.status = 'RECONNECTING';
             UI.setSyncStatus('syncing');
             UI.toast('Сеть восстановлена. Синхронизация...', 'info');
+
             this.processQueue();
         },
 
         queueChange(data) {
             localStorage.setItem(CONFIG.QUEUE_KEY, JSON.stringify(data));
+
+            // navigator.onLine — только индикатор
             if (!navigator.onLine) {
                 this.status = 'OFFLINE';
                 UI.setSyncStatus('offline');
                 return;
             }
+
             this.status = 'ONLINE';
             UI.setSyncStatus('syncing');
+
             if (this.syncTimer) clearTimeout(this.syncTimer);
             this.syncTimer = setTimeout(() => this.processQueue(), 2000);
         },
 
         async processQueue() {
-            if (!navigator.onLine) {
-                this.goOffline();
-                return;
-            }
             const raw = localStorage.getItem(CONFIG.QUEUE_KEY);
             if (!raw) {
                 this.status = 'SYNCED';
                 UI.setSyncStatus('saved');
                 return;
             }
+
+            if (!Auth.isAuthenticated()) return;
+
             try {
                 const data = JSON.parse(raw);
-                if(!Auth.isAuthenticated()) return;
-                await Api.saveData(Auth.getLogin(), Auth._getToken(), data);
+                await Api.saveData(
+                    Auth.getLogin(),
+                    Auth._getToken(),
+                    data
+                );
 
                 this.status = 'SYNCED';
                 this.lastSuccessSync = new Date();
                 localStorage.removeItem(CONFIG.QUEUE_KEY);
                 UI.setSyncStatus('saved');
                 UI.updateTimeAgo();
+
             } catch (e) {
-                console.error("Sync failed", e);
-                if (e.message === 'OFFLINE') this.goOffline();
-                else if (e.message !== 'AUTH_ERROR') {
-                    UI.setSyncStatus('error');
-                    UI.toast("Ошибка синхронизации: " + e.message, 'error');
+                console.error('Sync failed:', e);
+
+                if (e.message === 'OFFLINE') {
+                    this.goOffline();
+                    return;
                 }
+
+                if (e.message === 'AUTH_ERROR') {
+                    Auth.logout();
+                    return;
+                }
+
+                UI.setSyncStatus('error');
+                UI.toast('Ошибка синхронизации: ' + e.message, 'error');
             }
         }
     };
