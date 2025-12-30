@@ -904,7 +904,8 @@
             try {
                 response = await fetch(`${CONFIG.API_BASE}${endpoint}`, options);
             } catch (e) {
-                if (e.name === 'AbortError' || e.message === 'Failed to fetch') {
+                // Expanded error catching for robust offline detection
+                if (e.name === 'AbortError' || e.message === 'Failed to fetch' || e instanceof TypeError) {
                     throw new Error('OFFLINE');
                 }
                 throw e;
@@ -925,13 +926,16 @@
             return response;
         },
 
-        // 🔥 FIX: honest connectivity check
+        // 🔥 FIX: compatible connectivity check (replaces AbortSignal.timeout)
         async probeConnection() {
             try {
+                const controller = new AbortController();
+                const id = setTimeout(() => controller.abort(), 3000);
                 const res = await fetch(`${CONFIG.API_BASE}/`, {
                     method: 'HEAD',
-                    signal: AbortSignal.timeout(3000)
+                    signal: controller.signal
                 });
+                clearTimeout(id);
                 return res.ok;
             } catch {
                 return false;
@@ -981,6 +985,7 @@
     const SyncManager = {
         status: 'INIT',
         consecutiveFailures: 0,
+        isSyncing: false, // Mutex to prevent race conditions
 
         init() {
             window.addEventListener('online', () => this.goOnline());
@@ -1015,11 +1020,16 @@
         },
 
         async processQueue() {
+            // Locking mechanism
+            if (this.isSyncing) return;
+
             const raw = localStorage.getItem(CONFIG.QUEUE_KEY);
             if (!raw || !Auth.isAuthenticated()) {
                 UI.setSyncStatus('saved');
                 return;
             }
+
+            this.isSyncing = true;
 
             try {
                 await Api.saveData(Auth.getLogin(), Auth.getToken(), JSON.parse(raw));
@@ -1038,6 +1048,8 @@
                     UI.setSyncStatus('error');
                     UI.toast('Сервер временно недоступен. Работаем офлайн.', 'warn');
                 }
+            } finally {
+                this.isSyncing = false;
             }
         }
     };
@@ -1082,7 +1094,7 @@
 
         async load() {
             if (!Auth.isAuthenticated()) return;
-            if (!navigator.onLine) throw new Error("Для входа требуется интернет");
+            // REMOVED: navigator.onLine check (False Positive risk behind proxies/VPNs)
 
             UI.setSyncStatus('syncing');
             UI.toggleInteraction(false);
@@ -1098,7 +1110,7 @@
                 UI.renderCurrentView({ animate: false });
             } catch (e) {
                 console.error("Load Error", e);
-                UI.toast("Ошибка загрузки данных", "error");
+                UI.toast(e.message === 'OFFLINE' ? "Нет доступа к серверу" : "Ошибка загрузки данных", "error");
                 throw e;
             } finally {
                 UI.toggleInteraction(true);
@@ -1767,6 +1779,9 @@
         renderAnalytics() {
             if(window.histChartInst) { window.histChartInst.destroy(); window.histChartInst=null; }
             const ctx = Utils.$('historyChart');
+            // Safe check for canvas context (prevents crash on fast tab switching)
+            if(!ctx) return;
+
             const keys = Object.keys(Store.data).filter(k => k.match(/^\d{4}-\d{2}$/)).sort().slice(-6);
             const incs=[], exps=[];
             keys.forEach(k => {
