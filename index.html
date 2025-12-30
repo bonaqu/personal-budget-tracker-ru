@@ -866,15 +866,14 @@
         let _credentials = null;
 
         return {
-            // Updated to store session token instead of password
             setSession(login, sessionToken) {
                 _credentials = { login, token: sessionToken };
             },
             getLogin() {
-                return _credentials ? _credentials.login : null;
+                return _credentials?.login || null;
             },
             getToken() {
-                return _credentials ? _credentials.token : null;
+                return _credentials?.token || null;
             },
             isAuthenticated() {
                 return !!_credentials;
@@ -890,7 +889,6 @@
 
     // ========== API MODULE (Retry + Backoff + Classification) ==========
     const Api = {
-        // Robust fetch with error classification and probing support
         async request(endpoint, method = 'GET', body = null, { timeout = 10000 } = {}) {
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), timeout);
@@ -905,22 +903,21 @@
             let response;
             try {
                 response = await fetch(`${CONFIG.API_BASE}${endpoint}`, options);
-                clearTimeout(id);
             } catch (e) {
-                clearTimeout(id);
-                // TASK 3: Strict OFFLINE classification
-                // Only treat actual network failures (timeout, connection refused) as OFFLINE
-                if (e.name === 'AbortError' || e.message === 'Failed to fetch' || e.message.includes('NetworkError')) {
+                if (e.name === 'AbortError' || e.message === 'Failed to fetch') {
                     throw new Error('OFFLINE');
                 }
-                // Unknown runtime errors bubble up
                 throw e;
+            } finally {
+                clearTimeout(id);
             }
 
             if (!response.ok) {
-                // TASK 3: Classify status codes
                 if (response.status === 401 || response.status === 403) {
                     throw new Error('AUTH_ERROR');
+                }
+                if (response.status >= 500) {
+                    throw new Error('SERVER_ERROR');
                 }
                 throw new Error(`HTTP_${response.status}`);
             }
@@ -928,75 +925,52 @@
             return response;
         },
 
-        // New Mobile-first Probe (Task 5)
+        // 🔥 FIX: honest connectivity check
         async probeConnection() {
             try {
-                // Lightweight HEAD request to check connectivity
-                // Using short timeout (3s) to detect "Lie-fi" quickly
-                await fetch(`${CONFIG.API_BASE}/`, { method: 'HEAD', signal: AbortSignal.timeout(3000) });
-                return true;
-            } catch (e) {
+                const res = await fetch(`${CONFIG.API_BASE}/`, {
+                    method: 'HEAD',
+                    signal: AbortSignal.timeout(3000)
+                });
+                return res.ok;
+            } catch {
                 return false;
             }
         },
 
         async login(login, password) {
             const res = await this.request('/login', 'POST', { login, password });
-            try {
-                // TASK 1: API returns sessionToken
-                const data = await res.json();
-                // Check for token in response or fallback to password for legacy backend compatibility
-                const token = data.token || (data.sessionToken || password);
-                return { ok: true, token };
-            } catch(e) {
-                // If API doesn't return JSON, strictly per instructions we might fail,
-                // but for stability we return the password as a fallback token.
-                return { ok: true, token: password };
-            }
+            const data = await res.json();
+            return { ok: true, token: data.token || password };
         },
 
         async register(login, password) {
-            const res = await this.request('/register', 'POST', { login, password });
-            // For register, we immediately assume success implies a valid session start if needed,
-            // or we just return ok to let user login.
-            return res;
+            await this.request('/register', 'POST', { login, password });
+            return { ok: true };
         },
 
         async loadData(login) {
-            try {
-                const res = await this.request(`/load?login=${encodeURIComponent(login)}`);
-                return res.json();
-            } catch (e) {
-                if (e.message === 'AUTH_ERROR') Auth.logout();
-                throw e;
-            }
+            const res = await this.request(`/load?login=${encodeURIComponent(login)}`);
+            return res.json();
         },
 
-        // TASK 2: Retry + Backoff logic for saveData
         async saveData(login, token, data) {
-            // Task 1: Use sessionToken. We map 'token' to 'password' field if backend expects it,
-            // OR use 'token' if backend is updated. Assuming 'password' field is key for compat.
             const payload = { login, password: token, data };
+            const delays = [0, 500, 1500];
 
-            const attempts = [0, 500, 1500, 3000]; // Initial + 3 Retries delays
             let lastError;
-
-            for (let i = 0; i < attempts.length; i++) {
-                if (i > 0) {
-                    await new Promise(r => setTimeout(r, attempts[i])); // Backoff
-                }
-
+            for (let i = 0; i < delays.length; i++) {
+                if (i) await new Promise(r => setTimeout(r, delays[i]));
                 try {
-                    return await this.request('/save', 'POST', payload);
+                    await this.request('/save', 'POST', payload);
+                    return;
                 } catch (e) {
                     lastError = e;
-                    // Do NOT retry on Auth errors
                     if (e.message === 'AUTH_ERROR') {
                         Auth.logout();
                         throw e;
                     }
-                    // Continue loop on OFFLINE or HTTP_ERROR (5xx)
-                    // If it's the last attempt, loop finishes and we throw below
+                    if (e.message === 'OFFLINE') throw e;
                 }
             }
             throw lastError;
@@ -1005,120 +979,65 @@
 
     // ========== SYNC MANAGER (Improved Stability) ==========
     const SyncManager = {
-        status: navigator.onLine ? 'ONLINE' : 'OFFLINE',
-        lastSuccessSync: null,
-        syncTimer: null,
-        consecutiveFailures: 0, // TASK 4: Failure counter
+        status: 'INIT',
+        consecutiveFailures: 0,
 
         init() {
             window.addEventListener('online', () => this.goOnline());
             window.addEventListener('offline', () => this.goOffline());
-
-            if (navigator.onLine && localStorage.getItem(CONFIG.QUEUE_KEY)) {
-                this.goOnline();
-            }
-
-            setInterval(() => UI.updateTimeAgo(), 60000);
         },
 
         goOffline() {
             this.status = 'OFFLINE';
             UI.setSyncStatus('offline');
-            // Do NOT toast on simple offline switch to avoid spam, unless triggered by failure
         },
 
         async goOnline() {
             if (!Auth.isAuthenticated()) return;
 
-            // TASK 5: Mobile-first network probing
-            // Don't trust navigator.onLine blindly
-            const isReallyOnline = await Api.probeConnection();
-            if (!isReallyOnline) {
+            const ok = await Api.probeConnection();
+            if (!ok) {
                 this.goOffline();
                 return;
             }
 
-            // If we have too many failures, we stay offline until manual interaction or reload
-            // (Reset logic could be added here if needed, but per Task 4 we limit retries)
-            if (this.consecutiveFailures >= 3) {
-                // Optional: try one last check or stay offline?
-                // Let's allow a retry if "online" event fired, but be cautious.
-                // For strict Task 4 compliance, we usually stop.
-                // But for UX, if user toggles wifi, we should retry.
-                this.consecutiveFailures = 0; // Reset on manual network toggle
-            }
-
             this.status = 'RECONNECTING';
             UI.setSyncStatus('syncing');
-            UI.toast('Сеть восстановлена. Синхронизация...', 'info');
-
             this.processQueue();
         },
 
         queueChange(data) {
             localStorage.setItem(CONFIG.QUEUE_KEY, JSON.stringify(data));
-
-            if (!navigator.onLine) {
-                this.goOffline();
-                return;
+            if (this.status !== 'OFFLINE') {
+                clearTimeout(this._timer);
+                this._timer = setTimeout(() => this.processQueue(), 1500);
             }
-
-            this.status = 'ONLINE';
-            UI.setSyncStatus('syncing');
-
-            if (this.syncTimer) clearTimeout(this.syncTimer);
-            this.syncTimer = setTimeout(() => this.processQueue(), 2000);
         },
 
         async processQueue() {
             const raw = localStorage.getItem(CONFIG.QUEUE_KEY);
-            if (!raw) {
-                this.status = 'SYNCED';
+            if (!raw || !Auth.isAuthenticated()) {
                 UI.setSyncStatus('saved');
-                this.consecutiveFailures = 0;
                 return;
             }
 
-            if (!Auth.isAuthenticated()) return;
-
             try {
-                const data = JSON.parse(raw);
-                await Api.saveData(
-                    Auth.getLogin(),
-                    Auth.getToken(), // Uses session token
-                    data
-                );
-
-                this.status = 'SYNCED';
-                this.lastSuccessSync = new Date();
-                this.consecutiveFailures = 0; // Reset success
+                await Api.saveData(Auth.getLogin(), Auth.getToken(), JSON.parse(raw));
                 localStorage.removeItem(CONFIG.QUEUE_KEY);
+                this.consecutiveFailures = 0;
                 UI.setSyncStatus('saved');
-                UI.updateTimeAgo();
-
             } catch (e) {
-                console.error('Sync failed:', e);
                 this.consecutiveFailures++;
-
-                // TASK 4: Protection against infinite loop / bad state
-                if (this.consecutiveFailures >= 3) {
-                    this.goOffline();
-                    UI.toast('Не удалось синхронизировать данные (3 попытки). Переход в офлайн.', 'warn');
-                    return;
-                }
 
                 if (e.message === 'OFFLINE') {
                     this.goOffline();
                     return;
                 }
 
-                if (e.message === 'AUTH_ERROR') {
-                    // Auth calls logout internally, stop syncing
-                    return;
+                if (this.consecutiveFailures >= 3) {
+                    UI.setSyncStatus('error');
+                    UI.toast('Сервер временно недоступен. Работаем офлайн.', 'warn');
                 }
-
-                UI.setSyncStatus('error');
-                // Don't toast every retry failure, just generic state
             }
         }
     };
