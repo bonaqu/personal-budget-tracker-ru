@@ -985,11 +985,16 @@
     const SyncManager = {
         status: 'INIT',
         consecutiveFailures: 0,
-        isSyncing: false, // Mutex to prevent race conditions
+        isSyncing: false,
+        lastSuccessSync: null,
 
         init() {
             window.addEventListener('online', () => this.goOnline());
             window.addEventListener('offline', () => this.goOffline());
+            // Recover state if possible
+            if (navigator.onLine && Auth.isAuthenticated()) {
+                this.goOnline();
+            }
         },
 
         goOffline() {
@@ -1000,6 +1005,8 @@
         async goOnline() {
             if (!Auth.isAuthenticated()) return;
 
+            UI.setSyncStatus('syncing');
+
             const ok = await Api.probeConnection();
             if (!ok) {
                 this.goOffline();
@@ -1007,49 +1014,64 @@
             }
 
             this.status = 'RECONNECTING';
-            UI.setSyncStatus('syncing');
             this.processQueue();
         },
 
         queueChange(data) {
             localStorage.setItem(CONFIG.QUEUE_KEY, JSON.stringify(data));
-            if (this.status !== 'OFFLINE') {
+            if (this.status === 'OFFLINE') {
+                UI.setSyncStatus('offline');
+            } else {
                 clearTimeout(this._timer);
-                this._timer = setTimeout(() => this.processQueue(), 1500);
+                this._timer = setTimeout(() => this.processQueue(), 2000);
             }
         },
 
         async processQueue() {
-            // Locking mechanism
             if (this.isSyncing) return;
 
             const raw = localStorage.getItem(CONFIG.QUEUE_KEY);
-            if (!raw || !Auth.isAuthenticated()) {
-                UI.setSyncStatus('saved');
+            if (!raw) {
+                if (Auth.isAuthenticated() && this.status !== 'OFFLINE') {
+                    UI.setSyncStatus('saved');
+                }
                 return;
             }
 
+            if (!Auth.isAuthenticated()) return;
+
             this.isSyncing = true;
+            UI.setSyncStatus('syncing');
 
             try {
                 await Api.saveData(Auth.getLogin(), Auth.getToken(), JSON.parse(raw));
-                localStorage.removeItem(CONFIG.QUEUE_KEY);
+
+                // Only remove if it hasn't changed since we started
+                const currentRaw = localStorage.getItem(CONFIG.QUEUE_KEY);
+                if (currentRaw === raw) {
+                    localStorage.removeItem(CONFIG.QUEUE_KEY);
+                }
+
                 this.consecutiveFailures = 0;
+                this.lastSuccessSync = new Date();
+                this.status = 'SYNCED';
                 UI.setSyncStatus('saved');
             } catch (e) {
                 this.consecutiveFailures++;
-
                 if (e.message === 'OFFLINE') {
                     this.goOffline();
-                    return;
-                }
-
-                if (this.consecutiveFailures >= 3) {
-                    UI.setSyncStatus('error');
-                    UI.toast('Сервер временно недоступен. Работаем офлайн.', 'warn');
+                } else {
+                    if (this.consecutiveFailures >= 3) {
+                        UI.setSyncStatus('error');
+                        UI.toast('Ошибка синхронизации. Повторим позже.', 'warn');
+                    }
                 }
             } finally {
                 this.isSyncing = false;
+                // If new changes arrived while we were syncing, process them
+                if (localStorage.getItem(CONFIG.QUEUE_KEY)) {
+                    setTimeout(() => this.processQueue(), 1000);
+                }
             }
         }
     };
@@ -1551,6 +1573,8 @@
 
         setupDelegation() {
             const main = document.body;
+            // Update time ago every minute
+            setInterval(() => UI.updateTimeAgo(), 60000);
 
             main.addEventListener('click', (e) => {
                 const target = e.target;
