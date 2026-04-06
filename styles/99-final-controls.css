@@ -1,0 +1,260 @@
+/* Sidebar controls vFinal: unify expanded/collapsed button geometry */
+:root {
+  --sidebar-control-height: 46px;
+  --sidebar-control-radius: 16px;
+  --sidebar-control-gap: 10px;
+  --sidebar-control-padding-x: 12px;
+  --sidebar-control-icon-size: 28px;
+  --sidebar-control-icon-radius: 10px;
+  --sidebar-control-square: 40px;
+  --sidebar-control-svg-size: 16px;
+}
+
+.sidebar__toggle,
+.sidebar__utility-btn,
+.sidebar-nav .tabbar__btn,
+.sidebar__account-btn {
+  border-radius: var(--sidebar-control-radius) !important;
+}
+
+.sidebar__utility-btn,
+.sidebar-nav .tabbar__btn,
+.sidebar__account-btn {
+  min-height: var(--sidebar-control-height) !important;
+  gap: var(--sidebar-control-gap) !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+}
+
+.sidebar__utility-btn,
+.sidebar-nav .tabbar__btn {
+  padding-inline: var(--sidebar-control-padding-x) !important;
+}
+
+.sidebar__account-btn {
+  min-height: calc(var(--sidebar-control-height) + 2px) !important;
+  padding-inline: calc(var(--sidebar-control-padding-x) + 2px) !important;
+}
+
+.sidebar__toggle {
+  width: var(--sidebar-control-square) !important;
+  min-width: var(--sidebar-control-square) !important;
+  height: var(--sidebar-control-square) !important;
+  min-height: var(--sidebar-control-square) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  justify-self: center !important;
+  align-self: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.sidebar__card--brand .sidebar__row {
+  min-height: var(--sidebar-control-square) !important;
+  grid-template-columns: var(--sidebar-control-square) minmax(0, 1fr) !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+
+.sidebar-nav__icon,
+.sidebar__utility-btn .sidebar-nav__icon,
+.sidebar__account-btn .sidebar-nav__icon {
+  width: var(--sidebar-control-icon-size) !important;
+  min-width: var(--sidebar-control-icon-size) !important;
+  height: var(--sidebar-control-icon-size) !important;
+  min-height: var(--sidebar-control-icon-size) !important;
+  border-radius: var(--sidebar-control-icon-radius) !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  flex: 0 0 auto !important;
+}
+
+.sidebar__toggle span,
+.sidebar-nav__icon > span {
+  line-height: 1 !important;
+}
+
+.sidebar-nav__icon svg,
+.sidebar__utility-btn .sidebar-nav__icon svg,
+.sidebar__account-btn .sidebar-nav__icon svg {
+  width: var(--sidebar-control-svg-size) !important;
+  height: var(--sidebar-control-svg-size) !important;
+  margin: 0 !important;
+}
+
+.app-shell.is-sidebar-collapsed .sidebar__card--brand .sidebar__row {
+  min-height: var(--sidebar-control-square) !important;
+  grid-template-columns: 1fr !important;
+  justify-items: center !important;
+}
+
+.app-shell.is-sidebar-collapsed .sidebar__toggle,
+.app-shell.is-sidebar-collapsed .sidebar__utility-btn,
+.app-shell.is-sidebar-collapsed .sidebar__account-btn,
+.app-shell.is-sidebar-collapsed .sync-pill,
+.app-shell.is-sidebar-collapsed .sidebar-nav .tabbar__btn {
+  width: var(--sidebar-control-square) !important;
+  min-width: var(--sidebar-control-square) !important;
+  max-width: var(--sidebar-control-square) !important;
+  height: var(--sidebar-control-square) !important;
+  min-height: var(--sidebar-control-square) !important;
+  padding: 0 !important;
+  justify-content: center !important;
+  justify-self: center !important;
+  align-items: center !important;
+  gap: 0 !important;
+  border-radius: var(--sidebar-control-radius) !important;
+}
+
+.app-shell.is-sidebar-collapsed .sidebar__utility-btn .sidebar-nav__icon,
+.app-shell.is-sidebar-collapsed .sidebar__account-btn .sidebar-nav__icon,
+.app-shell.is-sidebar-collapsed .sidebar-nav .tabbar__btn .sidebar-nav__icon {
+  width: var(--sidebar-control-icon-size) !important;
+  min-width: var(--sidebar-control-icon-size) !important;
+  height: var(--sidebar-control-icon-size) !important;
+  min-height: var(--sidebar-control-icon-size) !important;
+}
+
+/* Responsive final polish for Budget + Months */
+@media (max-width: 1420px) {
+  .month-table__row--compact {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "headline"
+      "totals"
+      "focus" !important;
+    align-items: start !important;
+  }
+
+  .month-table__headline {
+    grid-area: headline !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .month-table__result {
+    width: 100% !important;
+  }
+
+  .month-table__totals {
+    grid-area: totals !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    align-content: start !important;
+  }
+
+  .month-table__focus {
+    grid-area: focus !important;
+    grid-template-columns: auto minmax(0, 1fr) !important;
+    align-items: center !important;
+  }
+}
+
+@media (max-width: 1280px) {
+  .journal-section .entry-row:not(.entry-row--wishlist) {
+    grid-template-columns: 64px 104px minmax(0, 1fr) max-content !important;
+    grid-template-areas:
+      "day amount category actions"
+      "desc desc desc desc" !important;
+    align-items: start !important;
+  }
+
+  .journal-section .entry-row:not(.entry-row--wishlist) .entry-actions {
+    grid-row: auto !important;
+    align-self: start !important;
+  }
+
+  .journal-section .entry-row:not(.entry-row--wishlist) .entry-field--desc,
+  .journal-section .entry-row:not(.entry-row--wishlist) .entry-field--category {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .journal-section .entry-row:not(.entry-row--wishlist) .entry-field--category {
+    grid-area: category !important;
+  }
+
+  .journal-section .entry-row:not(.entry-row--wishlist) .entry-field--desc {
+    grid-area: desc !important;
+  }
+}
+
+@media (max-width: 980px) {
+  .journal-section .entry-row:not(.entry-row--wishlist) {
+    grid-template-columns: 64px minmax(96px, 118px) minmax(0, 1fr) max-content !important;
+    grid-template-areas:
+      "day amount category actions"
+      "desc desc desc desc" !important;
+  }
+}
+
+/* Budget action controls: keep buttons on the same vertical level as field controls */
+.entry-row .entry-field--actions,
+.entry-actions {
+  grid-template-rows: minmax(14px, auto) 44px !important;
+}
+
+.entry-field__control--actions,
+.entry-actions__buttons {
+  min-height: 44px !important;
+  height: 44px !important;
+  align-items: flex-start !important;
+  align-self: start !important;
+}
+
+.entry-actions__buttons .icon-btn--row {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 15px !important;
+}
+
+.journal-section .entry-row:not(.entry-row--wishlist) .entry-actions {
+  top: -1px !important;
+}
+
+.entry-row--wishlist .entry-actions {
+  top: -4px !important;
+}
+
+.entry-row--wishlist .entry-actions__buttons .icon-btn--row {
+  width: 44px !important;
+  height: 44px !important;
+}
+
+@media (max-width: 1280px) {
+  .entry-actions__buttons .icon-btn--row {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  .journal-section .entry-row:not(.entry-row--wishlist) .entry-actions {
+    top: 0 !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .modal__dialog,
+  .modal__backdrop,
+  .toast,
+  .payment-calendar--v2,
+  .month-detail,
+  .heatmap-v2 {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+

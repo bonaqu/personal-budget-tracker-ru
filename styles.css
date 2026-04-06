@@ -1,0 +1,17 @@
+/*
+ * Стили разбиты на каскадные модули в папке /styles и подключаются из index.html по порядку.
+ * Актуальные файлы:
+ *  - styles/00-foundation.css
+ *  - styles/10-foundation-responsive.css
+ *  - styles/20-analytics.css
+ *  - styles/30-tags.css
+ *  - styles/40-months.css
+ *  - styles/50-settings.css
+ *  - styles/60-budget.css
+ *  - styles/70-auth.css
+ *  - styles/80-sidebar-polish.css
+ *  - styles/90-system-consistency.css
+ *  - styles/95-responsive-desktop.css
+ *  - styles/96-responsive-narrow.css
+ *  - styles/99-final-controls.css
+ */
