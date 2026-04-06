@@ -37,76 +37,90 @@ const Api = {
   },
 
   async request(endpoint, method = "GET", body = null, { timeout = 10000, headers = {} } = {}) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-    try {
-      const requestHeaders = { ...headers };
-      if (!requestHeaders["Content-Type"] && !requestHeaders["content-type"]) {
-        requestHeaders["Content-Type"] = "application/json";
-      }
-      const response = await fetch(`${CONFIG.API_BASE}${endpoint}`, {
-        method,
-        headers: requestHeaders,
-        signal: controller.signal,
-        body: body ? JSON.stringify(body) : undefined
-      });
-      if (!response.ok) {
-        let payload = null;
-        let serverMessage = "";
-        const contentType = response.headers.get("content-type") || "";
-        if (contentType.includes("application/json")) {
-          payload = await response.json().catch(() => null);
-          if (typeof payload?.error === "string") {
-            serverMessage = payload.error.trim();
-          }
-        } else {
-          serverMessage = await response.text().then((text) => text.trim()).catch(() => "");
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const requestHeaders = { ...headers };
+    const upperMethod = String(method || "GET").toUpperCase();
+    const hasBody = body !== null && body !== undefined;
+
+    if (hasBody && !requestHeaders["Content-Type"] && !requestHeaders["content-type"]) {
+      requestHeaders["Content-Type"] = "application/json";
+    }
+
+    const response = await fetch(`${CONFIG.API_BASE}${endpoint}`, {
+      method: upperMethod,
+      headers: requestHeaders,
+      signal: controller.signal,
+      body: hasBody ? JSON.stringify(body) : undefined
+    });
+
+    if (!response.ok) {
+      let payload = null;
+      let serverMessage = "";
+      const contentType = response.headers.get("content-type") || "";
+
+      if (contentType.includes("application/json")) {
+        payload = await response.json().catch(() => null);
+        if (typeof payload?.error === "string") {
+          serverMessage = payload.error.trim();
         }
-        const error = this.createError(
-          `HTTP_${response.status}`,
-          this.messageForStatus(response.status, serverMessage),
-          {
-            endpoint,
-            method,
-            status: response.status,
-            payload,
-            serverMessage
-          }
-        );
-        Diagnostics.report("api-request:failed", {
+      } else {
+        serverMessage = await response.text().then((text) => text.trim()).catch(() => "");
+      }
+
+      const error = this.createError(
+        `HTTP_${response.status}`,
+        this.messageForStatus(response.status, serverMessage),
+        {
           endpoint,
-          method,
+          method: upperMethod,
           status: response.status,
-          code: error.code,
-          message: error.message
-        }, response.status >= 500 ? "error" : "warning");
-        throw error;
-      }
-      return response;
-    } catch (error) {
-      if (error?.code) {
-        throw error;
-      }
-      const normalized = error?.name === "AbortError"
-        ? this.createError("TIMEOUT", "Сервер не ответил вовремя", { endpoint, method })
-        : error instanceof TypeError
-          ? this.createError("NETWORK_UNAVAILABLE", "Нет соединения с интернетом или API недоступно", { endpoint, method })
-          : this.createError("REQUEST_FAILED", this.getMessage(error), {
-            endpoint,
-            method,
-            originalError: error instanceof Error ? error.stack : String(error)
-          });
+          payload,
+          serverMessage
+        }
+      );
+
       Diagnostics.report("api-request:failed", {
         endpoint,
-        method,
-        code: normalized.code,
-        message: normalized.message
-      }, normalized.code === "REQUEST_FAILED" ? "error" : "warning");
-      throw normalized;
-    } finally {
-      clearTimeout(timeoutId);
+        method: upperMethod,
+        status: response.status,
+        code: error.code,
+        message: error.message
+      }, response.status >= 500 ? "error" : "warning");
+
+      throw error;
     }
-  },
+
+    return response;
+  } catch (error) {
+    if (error?.code) {
+      throw error;
+    }
+
+    const normalized = error?.name === "AbortError"
+      ? this.createError("TIMEOUT", "Сервер не ответил вовремя", { endpoint, method })
+      : error instanceof TypeError
+        ? this.createError("NETWORK_UNAVAILABLE", "Нет соединения с интернетом или API недоступно", { endpoint, method })
+        : this.createError("REQUEST_FAILED", this.getMessage(error), {
+          endpoint,
+          method,
+          originalError: error instanceof Error ? error.stack : String(error)
+        });
+
+    Diagnostics.report("api-request:failed", {
+      endpoint,
+      method,
+      code: normalized.code,
+      message: normalized.message
+    }, normalized.code === "REQUEST_FAILED" ? "error" : "warning");
+
+    throw normalized;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+},
 
   async probeConnection() {
     let lastError = null;
