@@ -42,7 +42,7 @@ const Api = {
 
   try {
     const requestHeaders = { ...headers };
-    const upperMethod = String(method || "GET").toUpperCase();
+    const normalizedMethod = String(method || "GET").toUpperCase();
     const hasBody = body !== null && body !== undefined;
 
     if (hasBody && !requestHeaders["Content-Type"] && !requestHeaders["content-type"]) {
@@ -50,7 +50,7 @@ const Api = {
     }
 
     const response = await fetch(`${CONFIG.API_BASE}${endpoint}`, {
-      method: upperMethod,
+      method: normalizedMethod,
       headers: requestHeaders,
       signal: controller.signal,
       body: hasBody ? JSON.stringify(body) : undefined
@@ -75,7 +75,7 @@ const Api = {
         this.messageForStatus(response.status, serverMessage),
         {
           endpoint,
-          method: upperMethod,
+          method: normalizedMethod,
           status: response.status,
           payload,
           serverMessage
@@ -84,7 +84,7 @@ const Api = {
 
       Diagnostics.report("api-request:failed", {
         endpoint,
-        method: upperMethod,
+        method: normalizedMethod,
         status: response.status,
         code: error.code,
         message: error.message
