@@ -1,2144 +1,1257 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
-    <meta name="description" content="Умный планировщик личного бюджета с аналитикой.">
-    <meta name="theme-color" content="#0b0f14">
-    <title>Personal Budget Tracker</title>
-
-    <!-- Chart.js (External Library) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
-
-    <style>
-        /* ========== MODERN CSS RESET & VARIABLES ========== */
-        :root {
-            --bg: #0b0f14;
-            --panel: #161b22;
-            --sidebar: #0d1117;
-            --muted: #8b949e;
-            --text-main: #f0f6fc;
-            --border: #30363d;
-
-            --accent: #2ea043;
-            --accent-hover: #3fb950;
-            --danger: #da3633;
-            --warn: #d29922;
-            --info: #58a6ff;
-            --purple: #a371f7;
-            --teal: #17c0eb;
-
-            /* Glassmorphism & UI Utils */
-            --glass: rgba(255,255,255,0.04);
-            --glass-border: rgba(255,255,255,0.1);
-            --input-bg: rgba(1,4,9, 0.8);
-
-            --round: 12px;
-            --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial;
-            --header-height: 60px;
-            --drawer-width: 280px;
-        }
-
-        *, *::before, *::after { box-sizing: border-box; }
-
-        body {
-            margin: 0;
-            font-family: var(--font-main), sans-serif;
-            background: var(--bg);
-            background-image:
-                    radial-gradient(at 0% 0%, rgba(35, 134, 54, 0.08) 0px, transparent 50%),
-                    radial-gradient(at 100% 100%, rgba(56, 139, 253, 0.08) 0px, transparent 50%);
-            background-attachment: fixed;
-            color: var(--text-main);
-            min-height: 100vh;
-            overflow-x: hidden;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        /* ========== UTILITY CLASSES ========== */
-        .u-flex { display: flex; }
-        .u-flex-center { display: flex; align-items: center; }
-        .u-flex-between { display: flex; justify-content: space-between; align-items: center; }
-        .u-flex-col { display: flex; flex-direction: column; }
-        .u-gap-8 { gap: 8px; }
-        .u-gap-12 { gap: 12px; }
-        .u-mt-16 { margin-top: 16px; }
-        .u-mb-20 { margin-bottom: 20px; }
-        .u-hidden { display: none !important; }
-        .u-disabled-area { opacity: 0.6; pointer-events: none; user-select: none; transition: opacity 0.3s; }
-
-        /* Text Colors */
-        .text-accent { color: var(--accent); }
-        .text-warn { color: var(--warn); }
-        .text-danger { color: var(--danger); }
-        .text-purple { color: var(--purple); }
-        .text-info { color: var(--info); }
-        .text-muted { color: var(--muted); }
-        .text-white { color: #fff; }
-        .text-bold { font-weight: bold; }
-        .text-right { text-align: right; }
-        .text-center { text-align: center; }
-
-        /* Borders & Layouts */
-        .border-glass-top { border-top: 1px solid var(--glass-border); }
-        .border-warn-left { border-left: 3px solid var(--warn); }
-
-        /* Empty States */
-        .empty-state {
-            padding: 20px;
-            color: var(--glass-border);
-            font-size: 13px;
-            font-style: italic;
-            text-align: center;
-            width: 100%;
-        }
-
-        /* ========== LAYOUT GRID ========== */
-        .app-shell {
-            display: grid;
-            grid-template-columns: 1fr;
-            grid-template-rows: var(--header-height) 1fr;
-            min-height: 100vh;
-        }
-
-        /* ========== AUTH SCREEN ========== */
-        .auth-container {
-            position: fixed; top:0; left:0; width:100%; height:100%;
-            display: flex; align-items: center; justify-content: center;
-            z-index: 2000;
-            backdrop-filter: blur(8px);
-            background: rgba(11, 15, 20, 0.85);
-        }
-        .auth-card {
-            width: 100%; max-width: 380px;
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
-            animation: authFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        @keyframes authFadeIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-
-        .auth-title { font-size: 22px; font-weight: 800; text-align: center; margin-bottom: 30px; color: var(--text-main); letter-spacing: -0.5px; }
-        .auth-input-group { margin-bottom: 20px; }
-        .auth-input-group label { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 8px; }
-        .auth-input {
-            width: 100%; padding: 12px 16px; background: #0d1117; border: 1px solid #30363d;
-            border-radius: 8px; color: white; font-size: 15px; transition: 0.2s;
-        }
-        .auth-input:focus { border-color: var(--info); outline: none; box-shadow: 0 0 0 4px rgba(88,166,255,0.1); }
-
-        .auth-btn { width: 100%; padding: 12px; font-size: 15px; margin-top: 10px; font-weight: 700; }
-
-        .auth-footer { margin-top: 24px; text-align: center; border-top: 1px solid var(--border); padding-top: 20px; }
-        .auth-footer-text { font-size: 12px; color: var(--muted); line-height: 1.5; }
-
-        /* Disabled State */
-        button:disabled, .btn:disabled {
-            opacity: 0.7; cursor: not-allowed; filter: grayscale(1);
-        }
-
-        /* ========== HEADER ========== */
-        .top-bar {
-            grid-row: 1;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 24px;
-            border-bottom: 1px solid var(--glass-border);
-            background: rgba(11, 15, 20, 0.85);
-            backdrop-filter: blur(12px);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .brand-area { display: flex; align-items: center; gap: 16px; }
-
-        .brand-logo {
-            font-size:18px; font-weight:700; display:flex; gap:8px; align-items:center; user-select:none;
-            color: #fff; letter-spacing: -0.3px;
-            line-height: 1;
-        }
-        .brand-badge {
-            font-size:10px;
-            background:rgba(46, 160, 67, 0.15);
-            color:var(--accent);
-            padding:3px 6px;
-            border-radius:6px;
-            border:1px solid rgba(46,160,67,0.2);
-            font-weight: 800;
-            transform: translateY(1px);
-        }
-
-        .user-pill {
-            font-size: 12px; color: var(--muted);
-            background: rgba(255,255,255,0.03);
-            padding: 0 16px;
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            border: 1px solid var(--glass-border);
-            height: 34px;
-            min-width: 240px;
-        }
-
-        .user-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 8px var(--accent); flex-shrink: 0; margin-top: 0; transition: all 0.3s; }
-        .user-dot.syncing { background: var(--info); box-shadow: 0 0 8px var(--info); animation: pulse 1s infinite; }
-        .user-dot.error { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
-        .user-dot.offline { background: var(--warn); box-shadow: none; border: 1px solid var(--warn); }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-
-        .sync-text {
-            font-size: 12px; margin: 0; display: inline-block;
-            font-weight: 500; white-space: nowrap;
-            line-height: normal;
-            transform: translateY(-1px);
-        }
-
-        #userNameDisplay {
-            font-weight: 600; color: var(--text-main);
-            border-right: 1px solid var(--glass-border); padding-right: 12px;
-            line-height: normal;
-            transform: translateY(-1px);
-        }
-
-        #logoutBtn { display: flex; align-items: center; justify-content: center; }
-
-        /* ========== NAVIGATION DRAWER ========== */
-        .drawer-backdrop {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); z-index: 900;
-            opacity: 0; visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0.3s;
-            backdrop-filter: blur(4px);
-        }
-        .drawer-backdrop.open { opacity: 1; visibility: visible; pointer-events: auto; }
-
-        .drawer {
-            position: fixed; top: 0; left: 0; bottom: 0;
-            width: var(--drawer-width); background: var(--sidebar);
-            border-right: 1px solid var(--glass-border); z-index: 1000;
-            transform: translateX(-100%);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            will-change: transform;
-            display: flex; flex-direction: column; padding: 20px;
-            box-shadow: 10px 0 30px rgba(0,0,0,0.5);
-        }
-        .drawer.open { transform: translateX(0); }
-
-        .drawer-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 30px; padding-bottom: 20px;
-            border-bottom: 1px solid var(--glass-border);
-        }
-        .drawer-header h3 { margin: 0; }
-
-        .nav-menu { display: flex; flex-direction: column; gap: 8px; }
-        .nav-item {
-            background: transparent; border: none; color: var(--muted);
-            text-align: left; padding: 12px 16px; border-radius: 8px;
-            font-size: 15px; font-weight: 600; cursor: pointer;
-            display: flex; align-items: center; gap: 12px; transition: all 0.2s;
-        }
-        .nav-item:hover { background: var(--glass); color: #fff; }
-        .nav-item.active { background: rgba(88, 166, 255, 0.1); color: var(--info); }
-
-        /* ========== MAIN CONTENT AREA ========== */
-        .main-content {
-            display: grid; grid-template-columns: 1fr 380px;
-            gap: 24px; padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%;
-        }
-        @media (max-width: 1000px) { .main-content { grid-template-columns: 1fr; } }
-
-        /* ========== PANELS & CARDS ========== */
-        .panel {
-            background: var(--panel); border: 1px solid var(--glass-border);
-            padding: 20px; border-radius: var(--round); margin-bottom: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-        .panel h4 { margin: 0; font-size: 16px; color: #fff; font-weight: 700; letter-spacing: -0.3px; }
-
-        .panel-dashed { border: 1px dashed var(--glass-border); background: transparent; }
-        .panel-advisor { border-left: 4px solid var(--info); background: linear-gradient(145deg, rgba(22,27,34,0.95), rgba(30,37,43,0.8)); }
-
-        /* ========== ADVISOR & HEATMAP STYLES ========== */
-        .advisor-item {
-            display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--glass-border);
-            animation: fadeIn 0.5s ease;
-        }
-        .advisor-item:last-child { border-bottom: none; padding-bottom: 0; }
-        .advisor-icon { font-size: 18px; flex-shrink: 0; margin-top: 2px; }
-        .advisor-text { font-size: 13px; line-height: 1.5; color: #e6edf3; }
-        .advisor-type-risk .advisor-icon { color: var(--danger); }
-        .advisor-type-trend .advisor-icon { color: var(--warn); }
-        .advisor-type-insight .advisor-icon { color: var(--purple); }
-        .advisor-type-calm .advisor-icon { color: var(--accent); }
-        .advisor-type-focus .advisor-icon { color: var(--info); }
-
-        .heatmap-container { margin-top: 24px; }
-        .heatmap-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 4px;
-            margin-top: 12px;
-        }
-        .heatmap-cell {
-            aspect-ratio: 1;
-            border-radius: 4px;
-            background: rgba(255, 255, 255, 0.03);
-            position: relative;
-            transition: transform 0.1s;
-        }
-        .heatmap-cell:hover { transform: scale(1.1); z-index: 2; border: 1px solid var(--glass-border); }
-        .heatmap-cell::after {
-            content: attr(data-date) "\A" attr(data-amount);
-            white-space: pre;
-            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
-            background: #21262d; color: #fff; padding: 6px 10px; border-radius: 6px;
-            font-size: 11px; pointer-events: none; opacity: 0; transition: opacity 0.2s;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5); border: 1px solid var(--glass-border);
-            width: max-content; text-align: center; z-index: 10; margin-bottom: 6px;
-        }
-        .heatmap-cell:hover::after { opacity: 1; }
-
-        /* ========== CONTROLS ========== */
-        .btn {
-            height: 36px; padding: 0 16px; border-radius: 8px; border: 1px solid transparent;
-            background: #21262d; color: #c9d1d9; cursor: pointer;
-            font-size: 13px; font-weight: 600;
-            display: inline-flex; align-items: center; justify-content: center;
-            gap: 8px; line-height: 1;
-            transition: all 0.2s; white-space: nowrap; user-select: none;
-            -webkit-user-select: none;
-        }
-        .btn:hover { background: #30363d; color: #fff; border-color: #8b949e; transform: translateY(-1px); }
-        .btn:active { transform: translateY(0); }
-        .btn.icon-only { width: 36px; padding: 0; font-size: 18px; }
-        .btn.ghost { background: transparent; border: 1px solid var(--glass-border); }
-        .btn.danger { color: #ff7b72; border-color: rgba(218,54,51,0.3); }
-        .btn.danger:hover { background: rgba(218,54,51,0.1); border-color: var(--danger); }
-        .btn.primary { background: var(--accent); color: white; border: 1px solid rgba(255,255,255,0.1); }
-        .btn.primary:hover { background: var(--accent-hover); box-shadow: 0 0 10px rgba(46, 160, 67, 0.4); }
-
-        .btn-group { display: flex; border: 1px solid var(--glass-border); border-radius: 8px; overflow: hidden; }
-        .btn-group .btn { border: none; border-radius: 0; background: transparent; height: 34px; width: 34px; margin: 0; }
-        .btn-group .btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
-        .btn-group .separator { width: 1px; background: var(--glass-border); }
-
-        /* Add Row Button */
-        .addRowBtn {
-            width: 100%; margin-top: 8px;
-            background: rgba(46, 160, 67, 0.05); border: 1px dashed var(--glass-border);
-            color: var(--muted); cursor: pointer; padding: 12px; border-radius: 10px; font-weight: 600;
-            transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;
-        }
-        .addRowBtn:hover { background: rgba(46, 160, 67, 0.12); border-color: var(--accent); color: var(--accent); }
-
-        /* Button Variants */
-        .btn-add-inc { color:var(--accent); border-color:rgba(46,160,67,0.3); }
-        .btn-add-debt { color:var(--warn); border-color:rgba(210,153,34,0.3); }
-        .btn-add-debt:hover { background: rgba(210, 153, 34, 0.12); border-color: var(--warn); color: var(--warn); }
-        .btn-add-rec { color:var(--purple); border-color:rgba(163, 113, 247, 0.3); }
-        .btn-add-rec:hover { background: rgba(163, 113, 247, 0.12); border-color: var(--purple); color: var(--purple); }
-        .btn-add-exp { color:var(--muted); border-color:var(--glass-border); }
-        .btn-add-wish { color:var(--muted); border-color:var(--muted); }
-
-        /* ========== LISTS & INPUTS ========== */
-        .row-item {
-            display: grid; grid-template-columns: 60px 100px 1fr 120px auto 36px;
-            gap: 10px; align-items: center;
-            background: var(--glass); padding: 8px; border-radius: 8px;
-            margin-bottom: 8px; border: 1px solid transparent;
-            transition: background 0.2s, transform 0.1s;
-        }
-        .row-item:hover { background: rgba(255,255,255,0.06); border-color: var(--glass-border); }
-
-        /* Specialized Row Grid Layouts (Used in JS) */
-        .row-item.wishlist-layout { grid-template-columns: 1fr 100px 40px 40px; }
-        .row-item.settings-layout { grid-template-columns: 100px 1fr 36px; }
-        .row-item.settings-cat-layout { grid-template-columns: 100px 1fr 120px 36px; }
-        .row-item.cat-def-layout { grid-template-columns: 40px 1fr 100px 40px; }
-        .row-item.analytics-layout { grid-template-columns: 1fr auto; }
-        .row-item.history-layout { display:grid; grid-template-columns: 100px 1fr 1fr 1fr; gap:10px; padding:12px; border-bottom:1px solid var(--glass-border); font-size:14px; }
-
-        input, textarea, select {
-            background: transparent; border: 1px solid transparent; color: #fff; padding: 6px 8px;
-            font-family: inherit; font-size: 14px; width: 100%; border-radius: 6px; transition: all 0.2s;
-        }
-        input:focus, textarea:focus, select:focus {
-            background: var(--input-bg); border-color: var(--info); outline: none;
-            box-shadow: 0 0 0 3px rgba(88,166,255,0.15);
-        }
-
-        .input-start-balance { width:120px; font-weight:bold; background:var(--bg); border:1px solid var(--glass-border); text-align:center; }
-
-        .row-item input.amount-input { text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
-        .row-item input.day-input { text-align: center; cursor: pointer; color: var(--info); font-weight: bold; }
-
-        .row-item textarea {
-            resize: none; height: 34px; line-height: 22px;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .row-item textarea:focus { white-space: normal; overflow: hidden; background: var(--input-bg); position: relative; z-index: 10; }
-
-        .tag-badge {
-            font-size: 12px; padding: 4px 10px; border-radius: 6px;
-            background: #333; color: #fff; cursor: pointer; border: none;
-            text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            min-width: 80px; max-width: 100%; font-weight: 500;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            transition: filter 0.2s;
-        }
-        .tag-badge:hover { filter: brightness(1.2); }
-
-        /* ========== DAY PICKER ========== */
-        .datepicker {
-            position: absolute; background: #1c2128; border: 1px solid #444; border-radius: 12px;
-            padding: 12px; display: none; grid-template-columns: repeat(7, 1fr); gap: 6px;
-            z-index: 9999; box-shadow: 0 15px 40px rgba(0,0,0,0.6);
-            animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        @keyframes popIn { from{opacity:0; transform: scale(0.9) translateY(-10px);} to{opacity:1; transform:scale(1) translateY(0);} }
-        .datepicker div {
-            width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; border-radius: 6px; font-size: 13px; color: #adbac7; transition: background 0.1s;
-        }
-        .datepicker div:hover { background: var(--info); color: #fff; }
-
-        /* ========== SIDEBAR KPI & CHARTS ========== */
-        .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
-        .kpi-card { background: var(--panel); padding: 16px; border-radius: 12px; border: 1px solid var(--glass-border); position: relative; }
-        .kpi-val { font-size: 24px; font-weight: 800; margin-top: 4px; letter-spacing: -0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-        .kpi-val.positive { color: var(--accent); }
-        .kpi-val.negative { color: var(--danger); }
-
-        .advisor-content { display: flex; flex-direction: column; gap: 8px; }
-
-        /* Tooltip System */
-        .info-tip {
-            display: inline-flex; align-items: center; justify-content: center;
-            width: 16px; height: 16px; border-radius: 50%;
-            background: rgba(255,255,255,0.1); color: var(--muted);
-            font-size: 10px; font-weight: bold; cursor: help; margin-left: 6px;
-            position: relative;
-        }
-        .info-tip:hover { background: var(--info); color: #fff; }
-
-        .tooltip-box:hover::after {
-            content: attr(data-tooltip);
-            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
-            width: max-content; max-width: 220px; background: #21262d; color: #e6edf3;
-            padding: 8px 12px; border-radius: 8px; font-size: 12px; line-height: 1.4;
-            border: 1px solid var(--glass-border); box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-            z-index: 1000; pointer-events: none; margin-bottom: 8px; white-space: normal;
-            text-align: center;
-        }
-
-        /* Chart Wrappers */
-        .chart-container { margin-top: 24px; }
-        .chart-wrap { position:relative; width:100%; }
-        /* Visually consistent heights for sidebar charts */
-        .chart-wrap-trend { height: 180px; }
-        .chart-wrap-doughnut { height: 180px; display: flex; justify-content: center; }
-
-        /* ========== RESPONSIVE ========== */
-        .view-section { display: none; }
-        .view-section.active { display: block; animation: fadeIn 0.3s ease; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-
-        @media (max-width: 768px) {
-            .main-content { padding: 16px; gap: 16px; }
-
-            .row-item {
-                grid-template-columns: 50px 1fr 40px;
-                grid-template-areas: "day desc del" "day amount del" "tag tag del";
-                gap: 8px; padding: 12px;
-            }
-            .row-item .day-input { grid-area: day; height: 100%; font-size: 16px; background: rgba(255,255,255,0.02); border-radius: 8px; }
-            .row-item .desc-input { grid-area: desc; }
-            .row-item .amount-input { grid-area: amount; text-align: left; }
-            .row-item .tag-badge { grid-area: tag; width: 100%; justify-content: flex-start; }
-            .row-item .btn-del {
-                grid-area: del; height: 100%; align-self: stretch; width: 100%;
-                background: rgba(218,54,51,0.05); color: var(--danger);
-            }
-            .row-item .btn-fav { display: none; }
-
-            .kpi-val { font-size: 20px; }
-        }
-
-        /* ========== MODAL ========== */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
-            display: none; justify-content: center; align-items: center; z-index: 5000;
-        }
-        .modal {
-            background: #1c2128; border: 1px solid #444; width: 90%; max-width: 500px; padding: 24px; border-radius: 16px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
-            animation: modalUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        @keyframes modalUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-        /* Picker List in Modal */
-        .picker-list-container { max-height:300px; overflow-y:auto; margin-bottom:16px; }
-        .picker-item-row { display:flex; gap:10px; padding:10px; border-bottom:1px solid var(--glass-border); }
-        .picker-checkbox { width:20px; height:20px; cursor:pointer; }
-        .picker-label { flex:1; cursor:pointer; display:flex; justify-content:space-between; }
-
-        /* Category Picker Grid */
-        .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .cat-item {
-            display: flex; align-items: center; gap: 10px;
-            padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.05);
-            cursor: pointer; transition: background 0.2s; border: 1px solid transparent;
-        }
-        .cat-item:hover { background: rgba(255,255,255,0.1); border-color: var(--glass-border); }
-        .cat-dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.3); }
-
-        /* Warning Block */
-        .warning-block {
-            background:rgba(46, 160, 67, 0.1); border:1px solid rgba(46, 160, 67, 0.2);
-            color:#e6edf3; padding:14px; border-radius:8px; margin-bottom:20px;
-            font-size:13px; line-height:1.5; display:flex; gap:12px; align-items:start;
-        }
-
-        .details-block summary {
-            cursor: pointer; font-size: 13px; color: var(--info); user-select: none; padding: 8px 0;
-        }
-        .details-block[open] summary { margin-bottom: 10px; }
-
-        /* Month Nav */
-        .month-nav-label { font-size:18px; font-weight:800; min-width:150px; text-align:center; user-select:none; }
-        .month-controls-wrap { margin-top:16px; background:rgba(255,255,255,0.03); padding:12px; border-radius:8px; display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
-
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0f14">
+  <meta name="description" content="Personal Budget Tracker для России: доходы, расходы, шаблоны, избранное, вишлист и аналитика по месяцам.">
+  <title>Personal Budget Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/00-foundation.css">
+  <link rel="stylesheet" href="styles/10-foundation-responsive.css">
+  <link rel="stylesheet" href="styles/20-analytics.css">
+  <link rel="stylesheet" href="styles/30-tags.css">
+  <link rel="stylesheet" href="styles/40-months.css">
+  <link rel="stylesheet" href="styles/50-settings.css">
+  <link rel="stylesheet" href="styles/60-budget.css">
+  <link rel="stylesheet" href="styles/70-auth.css">
+  <link rel="stylesheet" href="styles/80-sidebar-polish.css">
+  <link rel="stylesheet" href="styles/90-system-consistency.css">
+  <link rel="stylesheet" href="styles/95-responsive-desktop.css">
+  <link rel="stylesheet" href="styles/96-responsive-narrow.css">
+  <link rel="stylesheet" href="styles/99-final-controls.css">
+  <script src="scripts/01-core.js" defer></script>
+  <script src="scripts/02-auth-storage.js" defer></script>
+  <script src="scripts/03-api.js" defer></script>
+  <script src="scripts/04-store.js" defer></script>
+  <script src="scripts/05-sync.js" defer></script>
+  <script src="scripts/06-ui-core.js" defer></script>
+  <script src="scripts/07-ui-shell.js" defer></script>
+  <script src="scripts/08-ui-budget-settings.js" defer></script>
+  <script src="scripts/09-ui-analytics.js" defer></script>
+  <script src="scripts/10-ui-tags-months.js" defer></script>
+  <script src="scripts/11-ui-rendering.js" defer></script>
+  <script src="scripts/12-app-bootstrap.js" defer></script>
 </head>
-<body>
+<body class="app-booting" data-theme="dark">
+  <div class="bg-layer" aria-hidden="true">
+    <div class="bg-layer__orb bg-layer__orb--green"></div>
+    <div class="bg-layer__orb bg-layer__orb--blue"></div>
+    <div class="bg-layer__mesh"></div>
+  </div>
 
-<!-- AUTH SCREEN -->
-<div id="authView" class="auth-container">
-    <div class="auth-card">
-        <div class="auth-title">Personal Budget Tracker <span class="text-accent">Авторизация</span></div>
-        <form id="authForm" onsubmit="return false;">
-            <div class="auth-input-group">
-                <label for="authLogin">Логин / Имя пользователя</label>
-                <input type="text" id="authLogin" class="auth-input" placeholder="Введите ваш логин" required autocomplete="username">
-            </div>
-            <div class="auth-input-group">
-                <label for="authPass">Пароль</label>
-                <input type="password" id="authPass" class="auth-input" placeholder="Введите пароль" required autocomplete="current-password">
-            </div>
+  <section class="auth-screen" id="authScreen">
+    <div class="auth-shell-card glass-card">
+      <div class="auth-shell-card__intro">
+        <div class="auth-brand">
+          <div class="brand-mark" aria-hidden="true">
+            <span class="brand-mark__bar brand-mark__bar--sm"></span>
+            <span class="brand-mark__bar brand-mark__bar--md"></span>
+            <span class="brand-mark__bar brand-mark__bar--lg"></span>
+          </div>
+          <div class="auth-brand__copy">
+            <h1>Personal Budget Tracker</h1>
+            <p class="auth-brand__subtitle">Сервис для ведения личного бюджета</p>
+          </div>
+        </div>
+      </div>
 
-            <button type="button" class="btn primary auth-btn" id="loginBtn">Войти</button>
-            <button type="button" class="btn auth-btn ghost" id="registerBtn">Создать аккаунт</button>
+      <div class="auth-shell-card__form">
+        <div class="auth-card__head auth-card__head--startup auth-shell-card__head">
+          <h2>Вход и регистрация</h2>
+        </div>
 
-            <div class="auth-footer">
-                <div class="auth-footer-text">
-                    Вход возможен только при наличии интернета.<br>
-                    <span class="text-muted">Авторизационные данные шифруются.</span>
-                </div>
-            </div>
+        <form id="startupAuthForm" class="stack-form auth-form auth-form--startup" novalidate aria-describedby="startupAuthStatus">
+          <label class="auth-field auth-field--login">
+            <span class="auth-field__control">
+              <span class="auth-field__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M4.5 18.5C4.5 15.8766 6.62665 13.75 9.25 13.75H14.75C17.3734 13.75 19.5 15.8766 19.5 18.5"></path>
+                  <circle cx="12" cy="8.5" r="3.25"></circle>
+                </svg>
+              </span>
+              <input id="startupLogin" type="text" autocomplete="username" placeholder=" " required aria-describedby="startupLoginHint startupAuthStatus">
+              <span class="auth-field__floating">Логин</span>
+            </span>
+            <span class="auth-field__hint" id="startupLoginHint">Например, ivanov32</span>
+          </label>
+
+          <label class="auth-field auth-field--password">
+            <span class="auth-field__control auth-field__control--password password-field">
+              <span class="auth-field__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <rect x="5" y="10.5" width="14" height="9" rx="2.5"></rect>
+                  <path d="M8 10.5V8.5C8 6.29086 9.79086 4.5 12 4.5C14.2091 4.5 16 6.29086 16 8.5V10.5"></path>
+                </svg>
+              </span>
+              <input id="startupPassword" type="password" autocomplete="current-password" placeholder=" " required aria-describedby="startupPasswordHint startupAuthStatus">
+              <span class="auth-field__floating">Пароль</span>
+              <button class="password-field__toggle" type="button" data-password-toggle="startupPassword" aria-label="Показать или скрыть пароль">Показать</button>
+            </span>
+            <span class="auth-field__hint" id="startupPasswordHint">Введите пароль</span>
+          </label>
+
+          <div class="auth-card__actions">
+            <button class="btn btn--primary btn--block" id="startupLoginBtn" type="submit">Войти</button>
+            <button class="btn btn--secondary btn--block" id="startupRegisterBtn" type="button">Создать аккаунт</button>
+          </div>
+          <div class="auth-form__status" id="startupAuthStatus" role="status" aria-live="polite" aria-atomic="true" hidden></div>
         </form>
+      </div>
     </div>
-</div>
+  </section>
 
-<div class="app-shell u-hidden" id="appShell">
+  <div class="app-shell is-hidden" id="appShell">
+    <aside class="sidebar glass-card" aria-label="Навигация приложения">
+      <div class="sidebar__inner">
+        <section class="sidebar__card sidebar__card--brand">
+          <div class="sidebar__row">
+            <button class="icon-btn icon-btn--tiny sidebar__toggle" id="sidebarToggleBtn" type="button" aria-label="Свернуть или развернуть боковую панель" aria-expanded="false">
+              <span id="sidebarToggleIcon">←</span>
+            </button>
 
-    <!-- HEADER -->
-    <header class="top-bar">
-        <div class="brand-area">
-            <div class="u-flex-center u-gap-12">
-                <button type="button" class="btn icon-only ghost" id="toggleDrawerBtn" aria-label="Меню">☰</button>
-                <div class="btn-group">
-                    <button type="button" class="btn icon-only" id="undoBtn" title="Отменить действие">↶</button>
-                    <div class="separator"></div>
-                    <button type="button" class="btn icon-only" id="redoBtn" title="Вернуть действие">↷</button>
+            <div class="sidebar__brand">
+              <div class="brand-mark" aria-hidden="true">
+                <span class="brand-mark__bar brand-mark__bar--sm"></span>
+                <span class="brand-mark__bar brand-mark__bar--md"></span>
+                <span class="brand-mark__bar brand-mark__bar--lg"></span>
+              </div>
+              <div class="sidebar__brand-copy">
+                <h1>Personal Budget Tracker</h1>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="sidebar__card sidebar__card--history">
+          <div class="sidebar-history">
+            <button class="icon-btn sidebar__utility-btn sidebar__utility-btn--history" id="undoBtn" type="button" aria-label="Отменить последнее действие">
+              <span class="sidebar-nav__icon sidebar-nav__icon--utility" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M9 7L4.5 11.5L9 16"></path>
+                  <path d="M5.5 11.5H14C17.0376 11.5 19.5 13.9624 19.5 17"></path>
+                </svg>
+              </span>
+              <span class="sidebar__utility-label">Undo</span>
+            </button>
+            <button class="icon-btn sidebar__utility-btn sidebar__utility-btn--history" id="redoBtn" type="button" aria-label="Вернуть отмененное действие">
+              <span class="sidebar-nav__icon sidebar-nav__icon--utility" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M15 7L19.5 11.5L15 16"></path>
+                  <path d="M18.5 11.5H10C6.96243 11.5 4.5 13.9624 4.5 17"></path>
+                </svg>
+              </span>
+              <span class="sidebar__utility-label">Redo</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="sidebar__card sidebar__card--nav">
+          <nav class="sidebar-nav" aria-label="Разделы приложения">
+            <button class="tabbar__btn is-active" data-tab-target="overviewTab" type="button">
+              <span class="sidebar-nav__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M7 6.5H18.5"></path>
+                  <path d="M7 12H18.5"></path>
+                  <path d="M7 17.5H18.5"></path>
+                  <path d="M4.5 6.5H4.51"></path>
+                  <path d="M4.5 12H4.51"></path>
+                  <path d="M4.5 17.5H4.51"></path>
+                </svg>
+              </span>
+              <span class="sidebar-nav__label">Бюджет</span>
+            </button>
+            <button class="tabbar__btn" data-tab-target="analyticsTab" type="button">
+              <span class="sidebar-nav__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M5 19.5H19"></path>
+                  <path d="M7.5 16V11"></path>
+                  <path d="M12 16V7.5"></path>
+                  <path d="M16.5 16V9"></path>
+                </svg>
+              </span>
+              <span class="sidebar-nav__label">Аналитика</span>
+            </button>
+            <button class="tabbar__btn" data-tab-target="tagsTab" type="button">
+              <span class="sidebar-nav__icon sidebar-nav__icon--tag" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M7 7.5H13.5L19 13L13.5 18.5H7L2.5 13L7 7.5Z"></path>
+                  <circle cx="8.75" cy="10.75" r="1"></circle>
+                </svg>
+              </span>
+              <span class="sidebar-nav__label">Теги</span>
+            </button>
+            <button class="tabbar__btn" data-tab-target="monthsTab" type="button">
+              <span class="sidebar-nav__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <rect x="4.5" y="5.5" width="15" height="14" rx="3"></rect>
+                  <path d="M8 3.75V7"></path>
+                  <path d="M16 3.75V7"></path>
+                  <path d="M4.5 9.5H19.5"></path>
+                </svg>
+              </span>
+              <span class="sidebar-nav__label">Месяцы</span>
+            </button>
+            <button class="tabbar__btn" data-tab-target="settingsTab" type="button">
+              <span class="sidebar-nav__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M6 7.5H18"></path>
+                  <path d="M6 16.5H18"></path>
+                  <circle cx="9" cy="7.5" r="2"></circle>
+                  <circle cx="15" cy="16.5" r="2"></circle>
+                </svg>
+              </span>
+              <span class="sidebar-nav__label">Настройки</span>
+            </button>
+          </nav>
+        </section>
+
+        <section class="sidebar__card sidebar__card--status">
+          <div class="sync-pill" id="syncPill">
+            <span class="sync-pill__icon" aria-hidden="true">
+              <span class="sync-pill__dot" id="syncDot"></span>
+            </span>
+            <div class="sync-pill__text">
+              <strong id="syncTitle">Локальный режим</strong>
+              <span id="syncSubtitle">Данные хранятся в браузере</span>
+            </div>
+          </div>
+
+          <div class="sidebar__utility-row">
+            <button class="icon-btn sidebar__utility-btn" id="themeToggleBtn" type="button" aria-label="Переключить тему">
+              <span class="sidebar-nav__icon sidebar-nav__icon--utility" aria-hidden="true">
+                <span id="themeToggleIcon">◐</span>
+              </span>
+              <span class="sidebar__utility-label">Тема</span>
+            </button>
+          </div>
+        </section>
+
+        <div class="sidebar__footer">
+          <button class="btn btn--primary sidebar__account-btn" id="accountBtn" type="button">
+            <span class="sidebar-nav__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="8.5" r="3"></circle>
+                <path d="M6.5 18.5C7.9 15.9 10 14.75 12 14.75C14 14.75 16.1 15.9 17.5 18.5"></path>
+              </svg>
+            </span>
+            <span class="sidebar-nav__label">Аккаунт</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="page-grid">
+      <section class="tab-panel is-active" id="overviewTab">
+        <div class="hero-strip glass-card hero-strip--compact">
+          <div class="hero-strip__content">
+            <div class="hero-strip__header-row">
+              <div class="hero-strip__headline">
+                <p class="eyebrow">Бюджет на месяц</p>
+                <div class="hero-strip__title-row">
+                  <h2 id="activeMonthLabel">Март 2026</h2>
+                  <span class="hero-strip__badge">Живой журнал</span>
                 </div>
+                <p class="hero-strip__caption" id="heroCaption">Операции текущего месяца, шаблоны, избранное и вишлист.</p>
+              </div>
+
+              <div class="hero-strip__period">
+                <button class="btn btn--ghost btn--compact btn--month-return is-hidden" id="todayBtn" type="button">К текущему месяцу</button>
+                <div class="hero-strip__nav-group" aria-label="Навигация по месяцам">
+                  <button class="icon-btn hero-strip__nav-btn" id="prevMonthBtn" type="button" aria-label="Предыдущий месяц">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M14.5 6.5L9 12L14.5 17.5"></path>
+                    </svg>
+                  </button>
+                  <button class="icon-btn hero-strip__nav-btn" id="nextMonthBtn" type="button" aria-label="Следующий месяц">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M9.5 6.5L15 12L9.5 17.5"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
-            <div class="brand-logo">
-                Personal Budget Tracker <span class="brand-badge">PRO</span>
+
+            <div class="hero-strip__facts hero-strip__facts--budget">
+              <div class="hero-fact hero-fact--history">
+                <span>За всю историю</span>
+                <strong id="historyBalanceInline">0 ₽</strong>
+              </div>
+              <div class="hero-fact">
+                <span>Всего операций</span>
+                <strong id="historyOpsInline">0</strong>
+              </div>
+              <div class="hero-fact hero-fact--month">
+                <span>Чистый поток месяца</span>
+                <strong id="monthNetInline">0 ₽</strong>
+              </div>
+              <div class="hero-fact hero-fact--final">
+                <span>Остаток на конец</span>
+                <strong id="monthFinalInline">0 ₽</strong>
+              </div>
             </div>
+          </div>
         </div>
-        <div class="user-pill" id="userPill">
-            <span id="userNameDisplay">User</span>
-            <div id="syncIndicator" class="user-dot"></div>
-            <span id="syncStatusLabel" class="sync-text text-muted">Offline</span>
-            <button type="button" class="btn icon-only ghost" id="logoutBtn" style="width:20px; height:20px; min-width:20px; font-size:12px; margin-left:0; border:none; padding:0;" title="Выйти">✕</button>
-        </div>
-    </header>
 
-    <!-- DRAWER -->
-    <div class="drawer-backdrop" id="drawerBackdrop"></div>
-    <div class="drawer" id="appDrawer" role="dialog" aria-modal="true" aria-label="Главное меню">
-        <div class="drawer-header">
-            <h3>Меню</h3>
-            <button type="button" class="btn icon-only ghost" id="closeDrawerBtn" aria-label="Закрыть меню">✕</button>
-        </div>
-        <nav class="nav-menu">
-            <button type="button" class="nav-item active" data-target="viewBudget"><span>📝</span> Бюджет</button>
-            <button type="button" class="nav-item" data-target="viewAnalytics"><span>📈</span> Аналитика</button>
-            <button type="button" class="nav-item" data-target="viewHistory"><span>📊</span> История</button>
-            <button type="button" class="nav-item" data-target="viewSettings"><span>⚙️</span> Настройки</button>
-        </nav>
-    </div>
+        <section class="budget-workspace">
+          <div class="budget-workspace__main">
+            <section class="month-plan-grid">
+          <article class="panel glass-card month-plan-panel">
+            <div class="panel__head panel__head--spread">
+              <div>
+                <p class="eyebrow">Поток месяца</p>
+                <h3>Начальный остаток и тренд баланса</h3>
+              </div>
+              <div class="month-plan-panel__controls">
+                <div class="panel__badge" id="monthStartModeBadge">Авто</div>
+              </div>
+            </div>
 
-    <!-- MAIN AREA -->
-    <div class="main-content">
+            <div class="month-balance-toolbar">
+              <label class="month-balance-field" for="monthStartInput">
+                <span class="month-balance-label">Начальный остаток</span>
+                <input id="monthStartInput" class="month-balance-input" type="number" min="0" step="0.01" placeholder="Авто: 0">
+              </label>
 
-        <main id="mainAppArea">
-            <!-- VIEW: BUDGET -->
-            <div id="viewBudget" class="view-section active">
-                <!-- Date Navigator -->
-                <section class="panel">
-                    <div class="u-flex-between">
-                        <div class="u-flex-center u-gap-12">
-                            <button type="button" class="btn ghost icon-only" id="prevMonthBtn" title="Предыдущий месяц">◀</button>
-                            <div id="currentMonthLabel" class="month-nav-label">...</div>
-                            <button type="button" class="btn ghost icon-only" id="nextMonthBtn" title="Следующий месяц">▶</button>
-                        </div>
-                        <button type="button" class="btn ghost" id="todayBtn">Текущий месяц</button>
+              <label class="month-balance-toggle" for="manualStartCheck">
+                <input id="manualStartCheck" type="checkbox">
+                <span>Ручной ввод</span>
+              </label>
+
+              <div class="month-balance-hint" id="monthStartHint">Авто: 0 ₽</div>
+            </div>
+
+            <div class="month-balance-metrics">
+              <article class="month-balance-stat">
+                <span>Начальный остаток</span>
+                <strong id="monthStartResolved">0 ₽</strong>
+                <small id="monthStartResolvedHint">Авто-режим</small>
+              </article>
+
+              <article class="month-balance-stat">
+                <span>Свободно</span>
+                <strong id="monthFreeCash">0 ₽</strong>
+                <small id="monthFreeCashHint">После всех операций месяца</small>
+              </article>
+
+              <article class="month-balance-stat">
+                <span>Остаток на конец</span>
+                <strong id="monthFinalBalance">0 ₽</strong>
+                <small id="monthFinalBalanceHint">Переносится на следующий месяц</small>
+              </article>
+
+              <article class="month-balance-stat">
+                <span>Минимум в месяце</span>
+                <strong id="monthMinBalance">0 ₽</strong>
+                <small id="monthMinBalanceHint">Без просадки ниже нуля</small>
+              </article>
+            </div>
+
+            <div class="month-trend-shell" id="monthTrendShell">
+              <div class="month-trend-shell__head">
+                <div class="month-trend-shell__title">
+                  <span class="mini-label">График</span>
+                  <strong>Изменение баланса по дням</strong>
+                </div>
+                <button class="btn btn--ghost btn--compact" id="monthTrendToggleBtn" type="button" aria-controls="monthTrendShell" aria-expanded="false">Развернуть график</button>
+              </div>
+              <div class="month-trend-preview" id="monthTrendPreview">
+                <div class="month-trend-preview__item">
+                  <span>Тренд</span>
+                  <strong id="monthTrendPreviewValue">Баланс спокойный</strong>
+                </div>
+                <div class="month-trend-preview__item">
+                  <span>Минимум</span>
+                  <strong id="monthTrendPreviewMin">0 ₽</strong>
+                </div>
+                <div class="month-trend-preview__item">
+                  <span>Финал</span>
+                  <strong id="monthTrendPreviewFinal">0 ₽</strong>
+                </div>
+              </div>
+              <div class="chart-wrap chart-wrap--trend-balance">
+                <canvas id="monthBalanceChart"></canvas>
+              </div>
+              <p class="chart-note">Линия показывает изменение баланса по дням, столбцы — чистое движение денег за день, пунктир — сегодняшний день.</p>
+            </div>
+          </article>
+            </section>
+          </div>
+
+          <aside class="budget-workspace__side">
+            <article class="panel glass-card budget-side-panel">
+              <section class="budget-side-panel__section budget-side-panel__section--snapshot">
+                <div class="budget-side-panel__title">
+                  <p class="eyebrow">Сводка</p>
+                  <h3>Быстрый срез месяца</h3>
+                </div>
+                <section class="summary-grid summary-grid--budget" id="summaryGrid">
+          <article class="summary-card summary-card--income">
+            <span>Доходы месяца</span>
+            <strong id="incomeTotal">0 ₽</strong>
+            <small id="incomeHint">Поступления активного месяца</small>
+          </article>
+
+          <article class="summary-card summary-card--expense">
+            <span>Расходы месяца</span>
+            <strong id="expenseTotal">0 ₽</strong>
+            <small id="expenseHint">Списания активного месяца</small>
+          </article>
+
+          <article class="summary-card summary-card--net">
+            <span>Чистый поток</span>
+            <strong id="netTotal">0 ₽</strong>
+            <small id="netHint">Доходы минус расходы</small>
+          </article>
+
+          <article class="summary-card summary-card--rate">
+            <span>Норма накопления</span>
+            <strong id="savingsRate">0%</strong>
+            <small id="savingsHint">Доля дохода после трат</small>
+          </article>
+        </section>
+              </section>
+
+              <section class="budget-side-panel__section budget-side-panel__section--focus">
+                <div class="budget-side-panel__title">
+                  <p class="eyebrow">Фокус расходов</p>
+                  <h3>Главные категории месяца</h3>
+                </div>
+                <div class="budget-expense-focus" id="overviewCategoryLegend"></div>
+              </section>
+            </article>
+          </aside>
+
+          <div class="budget-workspace__journal">
+            <section class="journal-layout journal-layout--budget">
+              <div class="journal-main">
+                <article class="panel glass-card">
+                  <div class="panel__head panel__head--spread">
+                    <div>
+                      <p class="eyebrow">Операции</p>
+                      <h3>Бюджет по операциям</h3>
+                    </div>
+                    <div class="list-summary" id="journalMonthSummary">Нет операций</div>
+                  </div>
+
+                  <section class="budget-filter-shell is-collapsed" id="budgetFilterShell">
+                    <div class="budget-filter-shell__head">
+                      <div>
+                        <p class="eyebrow">Поиск и фильтры</p>
+                        <h4>По операциям и тегам</h4>
+                      </div>
+                      <button class="btn btn--ghost btn--compact" id="budgetFilterToggleBtn" type="button" aria-controls="budgetFilterBody" aria-expanded="false">Развернуть</button>
                     </div>
 
-                    <div class="month-controls-wrap">
-                        <div class="u-flex-center u-gap-12" style="flex:1; min-width:200px;">
-                            <label for="startMoney" class="text-muted" style="font-size:13px;">Начальный остаток:</label>
-                            <input type="number" id="startMoney" placeholder="Авто" class="input-start-balance">
-                        </div>
-                        <label for="manualStartCheck" class="u-flex-center u-gap-8" style="font-size:13px; cursor:pointer; user-select:none;">
-                            <input type="checkbox" id="manualStartCheck"> <span>Ручной ввод</span>
+                    <div class="budget-filter-shell__summary">
+                      <button class="list-summary list-summary--interactive" id="listSummary" type="button" aria-controls="budgetFilterBody" aria-expanded="false">Нет операций под текущие фильтры</button>
+                    </div>
+
+                    <div class="budget-filter-shell__body" id="budgetFilterBody">
+                      <div class="budget-search">
+                        <label class="field field--full budget-search__field">
+                          <span class="field__label">Поиск</span>
+                          <div class="budget-search__input-wrap">
+                            <span class="budget-search__icon" aria-hidden="true">
+                              <svg viewBox="0 0 24 24" fill="none">
+                                <circle cx="10.5" cy="10.5" r="5.5"></circle>
+                                <path d="M15 15L20 20"></path>
+                              </svg>
+                            </span>
+                            <input id="searchInput" type="search" placeholder="Описание, категория или тег">
+                          </div>
                         </label>
+                      </div>
+
+                  <div class="filters-grid filters-grid--budget">
+                    <label class="field">
+                      <span class="field__label">Период</span>
+                      <select id="filterPeriod">
+                        <option value="month">Активный месяц</option>
+                        <option value="all">Вся история</option>
+                      </select>
+                    </label>
+
+                    <label class="field">
+                      <span class="field__label">Тип</span>
+                      <select id="filterType">
+                        <option value="all">Все операции</option>
+                        <option value="income">Доходы</option>
+                        <option value="expense">Расходы</option>
+                      </select>
+                    </label>
+
+                    <label class="field">
+                      <span class="field__label">Категория</span>
+                      <select id="filterCategory"></select>
+                    </label>
+
+                    <label class="field">
+                      <span class="field__label">Сортировка</span>
+                      <select id="sortSelect">
+                        <option value="date-desc">Сначала новые</option>
+                        <option value="date-asc">Сначала старые</option>
+                        <option value="amount-desc">Сумма по убыванию</option>
+                        <option value="amount-asc">Сумма по возрастанию</option>
+                      </select>
+                    </label>
+
+                    <label class="field">
+                      <span class="field__label">Дата от</span>
+                      <input id="filterDateFrom" type="date">
+                    </label>
+
+                    <label class="field">
+                      <span class="field__label">Дата до</span>
+                      <input id="filterDateTo" type="date">
+                    </label>
+                  </div>
+
+                  <div class="transactions-list" id="transactionsList"></div>
                     </div>
+                  </section>
+
+                  <div class="journal-sections">
+                <section class="journal-section">
+                  <div class="journal-section__head">
+                    <h4>💵 Доходы</h4>
+                  </div>
+                  <div class="entry-list" id="incomesList"></div>
+                  <div class="journal-section__foot">
+                    <button class="btn btn--ghost btn--compact btn--add-row btn--add-income" type="button" data-journal-action="add-row" data-section="incomes">➕ Добавить доход</button>
+                  </div>
                 </section>
 
-                <!-- Money Blocks -->
-                <section class="panel">
-                    <div class="panel-header"><h4>💵 Доходы</h4></div>
-                    <div class="list-container" id="incomesList"></div>
-                    <button type="button" class="addRowBtn action-add-row btn-add-inc" data-add-type="incomes">➕ Добавить доход</button>
+                <section class="journal-section">
+                  <div class="journal-section__head">
+                    <h4>🏦 Долги</h4>
+                  </div>
+                  <div class="entry-list" id="debtsList"></div>
+                  <div class="journal-section__foot">
+                    <button class="btn btn--ghost btn--compact btn--add-row btn--add-debt" type="button" data-journal-action="add-row" data-section="debts">➕ Добавить долг</button>
+                  </div>
                 </section>
 
-                <section class="panel border-warn-left">
-                    <div class="panel-header"><h4>🏦 Долги</h4></div>
-                    <div class="list-container" id="debtsList"></div>
-                    <button type="button" class="addRowBtn btn-add-debt action-add-row" data-add-type="debts">➕ Добавить долг</button>
-                </section>
-
-                <section class="panel">
-                    <div class="panel-header">
-                        <h4>🔁 Обязательные (ЖКХ+Моб + Инет)</h4>
-                        <button type="button" class="btn ghost" id="loadTemplateBtn">📂 Из шаблона</button>
+                <section class="journal-section">
+                  <div class="journal-section__head">
+                    <h4>🔁 Обязательные (ЖКХ+Моб + Инет)</h4>
+                    <div class="section-actions">
+                      <button class="btn btn--ghost btn--compact" id="loadTemplateBtn" type="button">Из шаблона</button>
                     </div>
-                    <div class="list-container" id="recurringList"></div>
-                    <button type="button" class="addRowBtn btn-add-rec action-add-row" data-add-type="recurring">➕ Добавить платеж</button>
+                  </div>
+                  <div class="entry-list" id="recurringBudgetList"></div>
+                  <div class="journal-section__foot">
+                    <button class="btn btn--ghost btn--compact btn--add-row btn--add-recurring" type="button" data-journal-action="add-row" data-section="recurring">➕ Добавить платеж</button>
+                  </div>
                 </section>
 
-                <section class="panel">
-                    <div class="panel-header">
-                        <h4>🛒 Текущие расходы</h4>
-                        <button type="button" class="btn ghost" id="loadFavoriteBtn">★ Избранное</button>
+                <section class="journal-section">
+                  <div class="journal-section__head">
+                    <h4>🛒 Текущие расходы</h4>
+                    <div class="section-actions">
+                      <button class="btn btn--ghost btn--compact" id="loadFavoriteBtn" type="button">Избранное</button>
                     </div>
-                    <div class="list-container" id="expensesList"></div>
-                    <button type="button" class="addRowBtn action-add-row btn-add-exp" data-add-type="expenses">➕ Добавить покупку</button>
+                  </div>
+                  <div class="entry-list" id="expensesList"></div>
+                  <div class="journal-section__foot">
+                    <button class="btn btn--ghost btn--compact btn--add-row btn--add-expense" type="button" data-journal-action="add-row" data-section="expenses">➕ Добавить покупку</button>
+                  </div>
                 </section>
 
-                <section class="panel panel-dashed">
-                    <div class="panel-header"><h4>🌟 Хотелки (Вишлист)</h4></div>
-                    <div class="list-container" id="wishList"></div>
-                    <button type="button" class="addRowBtn action-add-row btn-add-wish" data-add-type="wishlist">➕ Добавить цель</button>
+                <section class="journal-section journal-section--wishlist">
+                  <div class="journal-section__head">
+                    <h4>🌟 Хотелки (Вишлист)</h4>
+                  </div>
+                  <div class="entry-list" id="wishList"></div>
+                  <div class="journal-section__foot">
+                    <button class="btn btn--ghost btn--compact btn--add-row btn--add-wishlist" type="button" data-journal-action="add-row" data-section="wishlist">➕ Добавить цель</button>
+                  </div>
                 </section>
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
+    </section>
+      </section>
 
-                <!-- Data Tools -->
-                <div class="u-mt-16 u-mb-20 border-glass-top" style="padding-top:20px;">
-                    <div class="warning-block">
-                        <div style="font-size:18px;">☁️</div>
-                        <div>
-                            <strong class="text-accent" style="display:block; margin-bottom:4px;">Потеряно интернет-подключение?</strong>
-                            Приложение сохраняет данные локально при отсутствии сети и синхронизирует их при подключении.
-                        </div>
-                    </div>
-
-                    <details class="details-block">
-                        <summary>Дополнительно (Резервное копирование)</summary>
-                        <div class="u-flex u-gap-12" style="flex-wrap:wrap; margin-top:10px;">
-                            <button type="button" class="btn ghost" id="exportBtn" title="Создать локальную резервную копию">📥 Скачать бэкап (JSON)</button>
-                            <button type="button" class="btn ghost danger" id="importBtn" title="Восстановить данные из файла (Перезапишет текущие!)">📤 Восстановить из JSON</button>
-                            <input type="file" id="importFile" hidden accept=".json">
-                        </div>
-                        <div class="text-muted u-mt-16" style="font-size:12px;">
-                            <b>Импорт</b> загружает данные в локальную версию. <br>
-                            Синхронизация с сервером произойдет автоматически при наличии сети.
-                        </div>
-                    </details>
-                </div>
+      <section class="tab-panel" id="analyticsTab">
+        <div class="analytics-grid">
+          <article class="panel glass-card analytics-panel analytics-panel--goals" id="goalsPanel">
+            <div class="panel__head">
+              <div>
+                <p class="eyebrow">Цели и копилки</p>
+                <h3>На какие суммы вы копите</h3>
+              </div>
             </div>
+            <button class="btn btn--ghost btn--compact is-hidden" id="goalPanelToggleBtn" type="button" aria-controls="goalList" aria-expanded="true">Свернуть</button>
+            <div class="goal-list" id="goalList"></div>
+          </article>
 
-            <!-- VIEW: ANALYTICS -->
-            <div id="viewAnalytics" class="view-section">
-                <h2 class="u-mb-20">Аналитика</h2>
-                <div class="panel">
-                    <h4>Динамика за полгода</h4>
-                    <div class="u-mt-16" style="height:300px;"><canvas id="historyChart"></canvas></div>
-                </div>
-                <div class="panel">
-                    <h4>Топ категорий трат</h4>
-                    <div id="topCategoriesList" class="list-container u-mt-16"></div>
-                </div>
+          <article class="panel glass-card analytics-panel analytics-panel--insights">
+            <div class="panel__head">
+              <div>
+                <p class="eyebrow">Аналитика</p>
+                <h3>Инсайты по бюджету</h3>
+              </div>
             </div>
+            <div class="insight-grid" id="insightGrid"></div>
+          </article>
 
-            <!-- VIEW: HISTORY -->
-            <div id="viewHistory" class="view-section">
-                <h2 class="u-mb-20">История периодов</h2>
-                <div class="panel">
-                    <div id="historyFullList" class="u-flex-col"></div>
-                </div>
+          <article class="panel glass-card analytics-panel analytics-panel--cashflow">
+            <div class="panel__head">
+              <div>
+                <p class="eyebrow">Динамика</p>
+                <h3>Доходы, расходы и чистый поток</h3>
+              </div>
             </div>
-
-            <!-- VIEW: SETTINGS -->
-            <div id="viewSettings" class="view-section">
-                <h2 class="u-mb-20">Настройки</h2>
-
-                <div class="panel">
-                    <div class="panel-header"><h4>🔁 Шаблоны платежей</h4></div>
-                    <div class="sub text-muted" style="margin-bottom:12px; font-size:13px;">Используйте для ЖКХ, интернета и регулярных списаний.</div>
-                    <div id="manageTemplatesList" class="list-container"></div>
-                    <button type="button" class="addRowBtn" id="createNewTemplateBtn">➕ Создать шаблон</button>
-                </div>
-
-                <div class="panel">
-                    <div class="panel-header"><h4>★ Быстрые покупки</h4></div>
-                    <div class="sub text-muted" style="margin-bottom:12px; font-size:13px;">Частые мелочи (кофе, проезд, обед).</div>
-                    <div id="manageFavoritesList" class="list-container"></div>
-                    <button type="button" class="addRowBtn" id="createNewFavoriteBtn">➕ Создать избранное</button>
-                </div>
-
-                <div class="panel">
-                    <div class="panel-header"><h4>🎨 Категории и Лимиты</h4></div>
-                    <div id="manageCategoriesList" class="list-container"></div>
-                    <button type="button" class="addRowBtn" id="createNewCategoryBtn">➕ Создать категорию</button>
-                </div>
+            <div class="cashflow-workspace" id="cashflowWorkspace">
+              <div class="chart-wrap chart-wrap--lg">
+                <canvas id="cashFlowChart"></canvas>
+              </div>
+              <div class="cashflow-strip" id="cashflowStrip"></div>
             </div>
-        </main>
+          </article>
 
-        <!-- SIDEBAR DASHBOARD -->
-        <aside class="summary-area">
-            <div class="kpi-grid">
-                <div class="kpi-card">
-                    <div class="sub u-flex-center text-muted" style="font-size:13px;">Остаток на конец <span class="info-tip tooltip-box" data-tooltip="Сумма денег, которая останется в конце месяца, если все планы сбудутся. Автоматически переносится на следующий месяц.">?</span></div>
-                    <div class="kpi-val" id="finalBalance" title="Расчетный остаток">—</div>
-                </div>
-                <div class="kpi-card">
-                    <div class="sub u-flex-center text-muted" style="font-size:13px;">Свободно <span class="info-tip tooltip-box" data-tooltip="Ваш доход минус обязательные платежи. Деньги, доступные для жизни и развлечений.">?</span></div>
-                    <div class="kpi-val text-main" id="freeCash" style="font-size:20px;" title="Свободные деньги">—</div>
-                </div>
+          <article class="panel glass-card analytics-panel analytics-panel--breakdown">
+            <div class="panel__head">
+              <div>
+                <p class="eyebrow">Структура расходов</p>
+                <h3>На что уходит месяц</h3>
+              </div>
             </div>
-
-            <div class="panel panel-advisor">
-                <div class="u-flex-center u-gap-8 text-bold text-info" style="margin-bottom:10px;">
-                    <span>🤖</span> Ассистент
-                </div>
-                <div id="advisorContent" class="advisor-content">
-                    <div class="text-muted" style="font-size:13px; font-style:italic;">Анализируем финансы...</div>
-                </div>
+            <div class="analytics-breakdown" id="analyticsBreakdown">
+              <div class="chart-wrap chart-wrap--md chart-wrap--semi-donut">
+                <canvas id="categoryChart"></canvas>
+              </div>
+              <div class="analytics-breakdown__legend" id="analyticsBreakdownLegend"></div>
             </div>
+          </article>
 
-            <!-- Heatmap Component -->
-            <div class="heatmap-container">
-                <div class="sub text-muted" style="margin-bottom:10px; font-size:13px;">Интенсивность трат <span class="info-tip tooltip-box" data-tooltip="Чем ярче ячейка, тем больше вы потратили в этот день.">?</span></div>
-                <div id="heatmapGrid" class="heatmap-grid"></div>
+          <article class="panel glass-card analytics-panel analytics-panel--heatmap">
+            <div class="panel__head">
+              <div>
+                <p class="eyebrow">Календарь трат</p>
+                <h3>Тепловая карта по дням</h3>
+              </div>
             </div>
+            <div class="heatmap-v2" id="heatmapWrap"></div>
+          </article>
 
-            <div class="chart-container">
-                <div class="sub text-muted" style="margin-bottom:10px; font-size:13px;">Тренд баланса <span class="info-tip tooltip-box" data-tooltip="График показывает изменение баланса в течение месяца. Если линия идет вниз — расходы превышают доходы. Пунктир — сегодняшний день.">?</span></div>
-                <div class="chart-wrap chart-wrap-trend"><canvas id="balanceChart"></canvas></div>
+          <article class="panel glass-card analytics-panel analytics-panel--calendar">
+            <div class="panel__head">
+              <div>
+                <p class="eyebrow">Календарь платежей</p>
+                <h3>Дни доходов и крупных трат</h3>
+              </div>
             </div>
+            <div class="payment-calendar" id="paymentCalendar"></div>
+          </article>
 
-            <div class="chart-container">
-                <div class="sub text-muted" style="margin-bottom:10px; font-size:13px;">Структура трат <span class="info-tip tooltip-box" data-tooltip="Круговая диаграмма показывает распределение расходов по категориям в процентах.">?</span></div>
-                <!-- Fixed Height for consistency -->
-                <div class="chart-wrap chart-wrap-doughnut">
-                    <canvas id="categoryChart"></canvas>
-                </div>
+          <article class="panel glass-card analytics-panel analytics-panel--advanced">
+            <div class="panel__head analytics-advanced__head">
+              <div>
+                <p class="eyebrow">Продвинутая аналитика</p>
+                <h3>Прогноз, глубокая статистика и повторяемость</h3>
+              </div>
+              <div class="analytics-advanced__tabs" role="tablist" aria-label="Продвинутая аналитика">
+                <button class="chip-btn is-active" id="analyticsViewDeepBtn" role="tab" type="button" data-analytics-view="deep" aria-controls="analyticsPaneDeep" aria-selected="true" tabindex="0">Статистика</button>
+                <button class="chip-btn" id="analyticsViewForecastBtn" role="tab" type="button" data-analytics-view="forecast" aria-controls="analyticsPaneForecast" aria-selected="false" tabindex="-1">Прогноз</button>
+                <button class="chip-btn" id="analyticsViewRecurringBtn" role="tab" type="button" data-analytics-view="recurring" aria-controls="analyticsPaneRecurring" aria-selected="false" tabindex="-1">Повторяемость</button>
+              </div>
             </div>
-        </aside>
-
-    </div>
-</div>
-
-<!-- Day Picker -->
-<div id="dayPicker" class="datepicker"></div>
-
-<!-- Generic Picker Modal -->
-<div id="pickerModal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Выберите элементы">
-    <div class="modal">
-        <div class="panel-header">
-            <h3>Выберите элементы</h3>
-            <button type="button" class="btn icon-only ghost closeModal" aria-label="Закрыть">✕</button>
+            <div class="analytics-advanced__body" id="analyticsAdvancedBody">
+              <section class="analytics-advanced__pane analytics-advanced__pane--deep is-active" id="analyticsPaneDeep" role="tabpanel" aria-labelledby="analyticsViewDeepBtn" data-analytics-pane="deep">
+                <div class="deep-stats" id="deepStats"></div>
+              </section>
+              <section class="analytics-advanced__pane analytics-advanced__pane--forecast" id="analyticsPaneForecast" role="tabpanel" aria-labelledby="analyticsViewForecastBtn" data-analytics-pane="forecast" hidden>
+                <div class="forecast-v3-panel" id="forecastPanel"></div>
+              </section>
+              <section class="analytics-advanced__pane analytics-advanced__pane--recurring" id="analyticsPaneRecurring" role="tabpanel" aria-labelledby="analyticsViewRecurringBtn" data-analytics-pane="recurring" hidden>
+                <div class="recurring-list" id="recurringList"></div>
+              </section>
+            </div>
+          </article>
         </div>
-        <div id="pickerList" class="picker-list-container"></div>
-        <button type="button" class="btn primary" id="pickerConfirmBtn" style="width:100%">Добавить выбранное</button>
-    </div>
-</div>
+      </section>
 
-<!-- Category Picker Modal -->
-<div id="catModal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Выберите категорию">
-    <div class="modal">
-        <div class="panel-header">
-            <h3>Выберите категорию</h3>
-            <button type="button" class="btn icon-only ghost closeModal" aria-label="Закрыть">✕</button>
+      <section class="tab-panel" id="tagsTab">
+        <div class="tags-layout">
+          <article class="panel glass-card tags-panel tags-panel--catalog">
+            <div class="panel__head panel__head--spread">
+              <div>
+                <p class="eyebrow">Теги</p>
+                <h3>Каталог и настройка</h3>
+              </div>
+              <button class="btn btn--primary btn--compact" id="createTagBtn" type="button">Новый тег</button>
+            </div>
+            <div class="tags-toolbar">
+              <label class="field field--search tags-search-field" for="tagSearchInput">
+                <span class="field__label">Поиск по тегам</span>
+                <input id="tagSearchInput" type="search" placeholder="Название, описание или связь с расходом">
+              </label>
+              <div class="tag-stats-grid tag-stats-grid--compact" id="tagStatsGrid"></div>
+            </div>
+            <div class="tag-catalog-list settings-scroll-list" id="tagCatalogList"></div>
+          </article>
+
+          <article class="panel glass-card tags-panel tags-panel--detail">
+            <div class="panel__head panel__head--spread">
+              <div>
+                <p class="eyebrow">Выбранный тег</p>
+                <h3 id="tagDetailTitle">Операции и связи</h3>
+              </div>
+              <div class="tag-detail-toolbar" id="tagDetailToolbar"></div>
+            </div>
+            <div class="tag-group-list" id="tagGroupList"></div>
+          </article>
         </div>
-        <div id="catList" class="cat-grid"></div>
+      </section>
+
+      <section class="tab-panel" id="monthsTab">
+        <div class="months-layout">
+          <article class="panel glass-card months-panel months-panel--table">
+            <div class="panel__head panel__head--spread">
+              <div>
+                <p class="eyebrow">История по месяцам</p>
+                <h3>Обзор и сравнение</h3>
+              </div>
+              <div class="month-overview-stats" id="monthsOverviewStats"></div>
+            </div>
+            <div class="month-table settings-scroll-list" id="monthsTable"></div>
+          </article>
+
+          <article class="panel glass-card months-panel months-panel--detail">
+            <div class="panel__head panel__head--spread">
+              <div>
+                <p class="eyebrow">Разбор месяца</p>
+                <h3 id="monthDetailTitle">Выберите месяц в таблице</h3>
+              </div>
+              <div class="month-detail-toolbar" id="monthDetailToolbar"></div>
+            </div>
+            <div class="month-detail" id="monthDetail"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="settingsTab">
+        <div class="settings-layout">
+          <article class="panel glass-card settings-panel settings-panel--categories">
+            <div class="panel__head panel__head--spread">
+              <div>
+                <p class="eyebrow">Категории</p>
+                <h3>Редактирование и лимиты</h3>
+              </div>
+              <button class="btn btn--primary btn--compact" id="openCategoryCreateBtn" type="button">Новая категория</button>
+            </div>
+            <div class="settings-category-stats" id="settingsCategoryStats"></div>
+            <div class="categories-editor settings-scroll-list" id="categoriesEditor"></div>
+          </article>
+
+          <article class="panel glass-card settings-panel settings-panel--quick">
+            <div class="panel__head panel__head--spread">
+              <div>
+                <p class="eyebrow">Быстрые сценарии</p>
+                <h3 id="settingsQuickTitle">Обязательные платежи</h3>
+              </div>
+              <button class="btn btn--primary btn--compact" id="settingsQuickCreateBtn" type="button">Новый шаблон</button>
+            </div>
+            <div class="settings-quick-toolbar">
+              <div class="settings-quick-switch" role="group" aria-label="Быстрые сценарии">
+                <button class="settings-quick-switch__btn is-active" id="settingsQuickTemplatesBtn" type="button" data-settings-quick="template" aria-pressed="true" aria-controls="manageQuickList" aria-describedby="settingsQuickStatus">Шаблоны</button>
+                <button class="settings-quick-switch__btn" id="settingsQuickFavoritesBtn" type="button" data-settings-quick="favorite" aria-pressed="false" aria-controls="manageQuickList" aria-describedby="settingsQuickStatus">Избранное</button>
+              </div>
+              <div class="settings-quick-stats" id="settingsQuickStats"></div>
+            </div>
+            <div class="settings-panel__status" id="settingsQuickStatus" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+            <div class="quick-list settings-scroll-list settings-quick-list" id="manageQuickList"></div>
+          </article>
+
+          <article class="panel glass-card settings-panel settings-panel--backup">
+            <div class="panel__head">
+              <div>
+                <p class="eyebrow">Импорт и экспорт</p>
+                <h3>Резервные копии JSON</h3>
+              </div>
+            </div>
+            <div class="backup-actions">
+              <button class="btn btn--secondary" id="exportBtn" type="button" aria-describedby="backupNote backupStatus">Экспортировать бэкап</button>
+              <button class="btn btn--ghost" id="importBtn" type="button" aria-describedby="backupNote backupStatus">Импортировать бэкап</button>
+              <input id="importFileInput" type="file" accept="application/json" hidden>
+            </div>
+            <div class="settings-panel__status settings-panel__status--backup" id="backupStatus" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+            <div class="backup-note" id="backupNote">
+              Формат бэкапа совместим со структурой `settings + wishlist + YYYY-MM`.
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal" id="authModal" aria-hidden="true">
+    <div class="modal__backdrop" data-close-modal="authModal"></div>
+    <div class="modal__dialog glass-card modal__dialog--sm">
+      <button class="modal__close" type="button" data-close-modal="authModal" aria-label="Закрыть">×</button>
+      <div class="modal__head">
+        <p class="eyebrow">Аккаунт</p>
+        <h3>Вход или регистрация</h3>
+      </div>
+
+        <form id="modalAuthForm" class="stack-form auth-form auth-form--modal" novalidate aria-describedby="modalAuthStatus">
+          <label class="auth-field auth-field--login">
+            <span class="auth-field__control">
+              <span class="auth-field__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M4.5 18.5C4.5 15.8766 6.62665 13.75 9.25 13.75H14.75C17.3734 13.75 19.5 15.8766 19.5 18.5"></path>
+                  <circle cx="12" cy="8.5" r="3.25"></circle>
+                </svg>
+              </span>
+              <input id="modalLogin" type="text" autocomplete="username" placeholder=" " aria-describedby="modalLoginHint modalAuthStatus">
+              <span class="auth-field__floating">Логин</span>
+            </span>
+            <span class="auth-field__hint" id="modalLoginHint">Введите логин</span>
+          </label>
+
+          <label class="auth-field auth-field--password">
+            <span class="auth-field__control auth-field__control--password password-field">
+              <span class="auth-field__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <rect x="5" y="10.5" width="14" height="9" rx="2.5"></rect>
+                  <path d="M8 10.5V8.5C8 6.29086 9.79086 4.5 12 4.5C14.2091 4.5 16 6.29086 16 8.5V10.5"></path>
+                </svg>
+              </span>
+              <input id="modalPassword" type="password" autocomplete="current-password" placeholder=" " aria-describedby="modalPasswordHint modalAuthStatus">
+              <span class="auth-field__floating">Пароль</span>
+              <button class="password-field__toggle" type="button" data-password-toggle="modalPassword" aria-label="Показать или скрыть пароль">Показать</button>
+            </span>
+            <span class="auth-field__hint" id="modalPasswordHint">Введите пароль</span>
+          </label>
+
+        <div class="auth-card__actions">
+          <button class="btn btn--primary btn--block" id="modalLoginBtn" type="submit">Войти</button>
+          <button class="btn btn--secondary btn--block" id="modalRegisterBtn" type="button">Создать аккаунт</button>
+        </div>
+        <div class="auth-form__status" id="modalAuthStatus" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+      </form>
     </div>
-</div>
-
-<!-- Toast Notifications -->
-<div id="toastWrap" style="position:fixed; bottom:24px; right:24px; z-index:9999; display:flex; flex-direction:column; gap:10px; pointer-events:none;"></div>
-
-<script>
-    "use strict";
-
-    /*
-     * SENIOR ARCHITECTURE v6 (Session Token, Retry Logic, Network Probing):
-     * 1. Auth Module (Token based)
-     * 2. SyncManager (Robust, Mobile-first probing)
-     * 3. Store Module
-     * 4. Api (Retry + Backoff)
-     * 5. UI Module
-     * 6. SmartAdvisor & Heatmap
-     */
-
-    const CONFIG = {
-        API_BASE: 'https://personal-budget-ru.svoy1997.workers.dev',
-        QUEUE_KEY: 'budget_offline_pending',
-    };
-
-    const Utils = {
-        $: (id) => document.getElementById(id),
-        escapeHtml: (str) => {
-            if(!str) return '';
-            return String(str).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
-        },
-        formatter: new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }),
-        formatMoney: (n) => Utils.formatter.format(n || 0),
-        genId: () => 'id_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 9),
-        timeSince: (date) => {
-            if(!date) return 'Никогда';
-            const seconds = Math.floor((new Date() - date) / 1000);
-            let interval = seconds / 31536000;
-            if (interval > 1) return Math.floor(interval) + " г. назад";
-            interval = seconds / 2592000;
-            if (interval > 1) return Math.floor(interval) + " мес. назад";
-            interval = seconds / 86400;
-            if (interval > 1) return Math.floor(interval) + " д. назад";
-            interval = seconds / 3600;
-            if (interval > 1) return Math.floor(interval) + " ч. назад";
-            interval = seconds / 60;
-            if (interval > 1) return Math.floor(interval) + " мин. назад";
-            return "Только что";
-        }
-    };
-
-    const Const = {
-        MONTHS: ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"],
-        DEFAULT_CATS: [
-            { id: 'c_food', name: 'Еда', color: '#238636', limit: 30000 },
-            { id: 'c_bills', name: 'ЖКХ+Моб + Инет', color: '#a371f7', limit: 0 },
-            { id: 'c_debts', name: 'Долги', color: '#d29922', limit: 0 },
-            { id: 'c_home', name: 'Дом', color: '#1f6feb', limit: 10000 },
-            { id: 'c_trans', name: 'Транспорт', color: '#8957e5', limit: 5000 },
-            { id: 'c_health', name: 'Здоровье', color: '#da3633', limit: 0 },
-            { id: 'c_fun', name: 'Досуг', color: '#ff7b72', limit: 10000 },
-            { id: 'c_clothes', name: 'Одежда', color: '#1f6feb', limit: 0 },
-            { id: 'c_edu', name: 'Образование', color: '#3fb950', limit: 0 },
-            { id: 'c_tech', name: 'Техника', color: '#79c0ff', limit: 0 },
-            { id: 'c_other', name: 'Прочее', color: '#8b949e', limit: 0 }
-        ]
-    };
-
-    // ========== AUTH MODULE (Session Token) ==========
-    const Auth = (() => {
-        let _credentials = null;
-
-        return {
-            setSession(login, sessionToken) {
-                _credentials = { login, token: sessionToken };
-            },
-            getLogin() {
-                return _credentials?.login || null;
-            },
-            getToken() {
-                return _credentials?.token || null;
-            },
-            isAuthenticated() {
-                return !!_credentials;
-            },
-            logout() {
-                _credentials = null;
-                Store.reset();
-                localStorage.removeItem(CONFIG.QUEUE_KEY);
-                UI.showAuthScreen();
-            }
-        };
-    })();
-
-    // ========== API MODULE (Retry + Backoff + Classification) ==========
-    const Api = {
-        async request(endpoint, method = 'GET', body = null, { timeout = 10000 } = {}) {
-            const controller = new AbortController();
-            const id = setTimeout(() => controller.abort(), timeout);
-
-            const options = {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                signal: controller.signal
-            };
-            if (body) options.body = JSON.stringify(body);
-
-            let response;
-            try {
-                response = await fetch(`${CONFIG.API_BASE}${endpoint}`, options);
-            } catch (e) {
-                // Expanded error catching for robust offline detection
-                if (e.name === 'AbortError' || e.message === 'Failed to fetch' || e instanceof TypeError) {
-                    throw new Error('OFFLINE');
-                }
-                throw e;
-            } finally {
-                clearTimeout(id);
-            }
-
-            if (!response.ok) {
-                if (response.status === 401 || response.status === 403) {
-                    throw new Error('AUTH_ERROR');
-                }
-                if (response.status >= 500) {
-                    throw new Error('SERVER_ERROR');
-                }
-                throw new Error(`HTTP_${response.status}`);
-            }
-
-            return response;
-        },
-
-        // 🔥 FIX: compatible connectivity check (replaces AbortSignal.timeout)
-        async probeConnection() {
-            try {
-                const controller = new AbortController();
-                const id = setTimeout(() => controller.abort(), 3000);
-                const res = await fetch(`${CONFIG.API_BASE}/`, {
-                    method: 'HEAD',
-                    signal: controller.signal
-                });
-                clearTimeout(id);
-                return res.ok;
-            } catch {
-                return false;
-            }
-        },
-
-        async login(login, password) {
-            const res = await this.request('/login', 'POST', { login, password });
-            const data = await res.json();
-            return { ok: true, token: data.token || password };
-        },
-
-        async register(login, password) {
-            await this.request('/register', 'POST', { login, password });
-            return { ok: true };
-        },
-
-        async loadData(login) {
-            const res = await this.request(`/load?login=${encodeURIComponent(login)}`);
-            return res.json();
-        },
-
-        async saveData(login, token, data) {
-            const payload = { login, password: token, data };
-            const delays = [0, 500, 1500];
-
-            let lastError;
-            for (let i = 0; i < delays.length; i++) {
-                if (i) await new Promise(r => setTimeout(r, delays[i]));
-                try {
-                    await this.request('/save', 'POST', payload);
-                    return;
-                } catch (e) {
-                    lastError = e;
-                    if (e.message === 'AUTH_ERROR') {
-                        Auth.logout();
-                        throw e;
-                    }
-                    if (e.message === 'OFFLINE') throw e;
-                }
-            }
-            throw lastError;
-        }
-    };
-
-    // ========== SYNC MANAGER (Improved Stability) ==========
-    const SyncManager = {
-        status: 'INIT',
-        consecutiveFailures: 0,
-        isSyncing: false,
-        lastSuccessSync: null,
-
-        init() {
-            window.addEventListener('online', () => this.goOnline());
-            window.addEventListener('offline', () => this.goOffline());
-            // Recover state if possible
-            if (navigator.onLine && Auth.isAuthenticated()) {
-                this.goOnline();
-            }
-        },
-
-        goOffline() {
-            this.status = 'OFFLINE';
-            UI.setSyncStatus('offline');
-        },
-
-        async goOnline() {
-            if (!Auth.isAuthenticated()) return;
-
-            UI.setSyncStatus('syncing');
-
-            const ok = await Api.probeConnection();
-            if (!ok) {
-                this.goOffline();
-                return;
-            }
-
-            this.status = 'RECONNECTING';
-            this.processQueue();
-        },
-
-        queueChange(data) {
-            localStorage.setItem(CONFIG.QUEUE_KEY, JSON.stringify(data));
-            if (this.status === 'OFFLINE') {
-                UI.setSyncStatus('offline');
-            } else {
-                clearTimeout(this._timer);
-                this._timer = setTimeout(() => this.processQueue(), 2000);
-            }
-        },
-
-        async processQueue() {
-            if (this.isSyncing) return;
-
-            const raw = localStorage.getItem(CONFIG.QUEUE_KEY);
-            if (!raw) {
-                if (Auth.isAuthenticated() && this.status !== 'OFFLINE') {
-                    UI.setSyncStatus('saved');
-                }
-                return;
-            }
-
-            if (!Auth.isAuthenticated()) return;
-
-            this.isSyncing = true;
-            UI.setSyncStatus('syncing');
-
-            try {
-                await Api.saveData(Auth.getLogin(), Auth.getToken(), JSON.parse(raw));
-
-                // Only remove if it hasn't changed since we started
-                const currentRaw = localStorage.getItem(CONFIG.QUEUE_KEY);
-                if (currentRaw === raw) {
-                    localStorage.removeItem(CONFIG.QUEUE_KEY);
-                }
-
-                this.consecutiveFailures = 0;
-                this.lastSuccessSync = new Date();
-                this.status = 'SYNCED';
-                UI.setSyncStatus('saved');
-            } catch (e) {
-                this.consecutiveFailures++;
-                if (e.message === 'OFFLINE') {
-                    this.goOffline();
-                } else {
-                    if (this.consecutiveFailures >= 3) {
-                        UI.setSyncStatus('error');
-                        UI.toast('Ошибка синхронизации. Повторим позже.', 'warn');
-                    }
-                }
-            } finally {
-                this.isSyncing = false;
-                // If new changes arrived while we were syncing, process them
-                if (localStorage.getItem(CONFIG.QUEUE_KEY)) {
-                    setTimeout(() => this.processQueue(), 1000);
-                }
-            }
-        }
-    };
-
-    // ========== STORE MODULE ==========
-    const Store = {
-        data: {},
-        historyStack: [],
-        redoStack: [],
-        currentDate: new Date(),
-
-        get year() { return this.currentDate.getFullYear(); },
-        get month() { return this.currentDate.getMonth(); },
-        get monthKey() { return `${this.year}-${String(this.month + 1).padStart(2, '0')}`; },
-
-        reset() {
-            this.data = {};
-            this.historyStack = [];
-            this.redoStack = [];
-        },
-
-        initDefaults() {
-            if (!this.data) this.data = {};
-            if(!this.data.settings) this.data.settings = {};
-            if(!Array.isArray(this.data.settings.categories)) {
-                this.data.settings.categories = JSON.parse(JSON.stringify(Const.DEFAULT_CATS));
-            } else {
-                const names = this.data.settings.categories.map(c => c.name);
-                if(!names.includes('Долги')) this.data.settings.categories.push({ id: Utils.genId(), name: 'Долги', color: '#d29922', limit: 0 });
-                if(!names.includes('ЖКХ+Моб + Инет')) this.data.settings.categories.push({ id: Utils.genId(), name: 'ЖКХ+Моб + Инет', color: '#a371f7', limit: 0 });
-            }
-            if(!this.data.settings.templates) this.data.settings.templates = [];
-            if(!this.data.settings.favorites) this.data.settings.favorites = [];
-            if(!this.data.wishlist) this.data.wishlist = [];
-        },
-
-        getPrevMonthKey() {
-            let py = this.year, pm = this.month - 1;
-            if (pm < 0) { pm = 11; py--; }
-            return `${py}-${String(pm + 1).padStart(2, '0')}`;
-        },
-
-        async load() {
-            if (!Auth.isAuthenticated()) return;
-            // REMOVED: navigator.onLine check (False Positive risk behind proxies/VPNs)
-
-            UI.setSyncStatus('syncing');
-            UI.toggleInteraction(false);
-
-            try {
-                const remoteData = await Api.loadData(Auth.getLogin());
-                this.data = (remoteData && typeof remoteData === 'object') ? remoteData : {};
-                this.initDefaults();
-                localStorage.removeItem(CONFIG.QUEUE_KEY);
-                SyncManager.lastSuccessSync = new Date();
-                SyncManager.status = 'SYNCED';
-                UI.setSyncStatus('saved');
-                UI.renderCurrentView({ animate: false });
-            } catch (e) {
-                console.error("Load Error", e);
-                UI.toast(e.message === 'OFFLINE' ? "Нет доступа к серверу" : "Ошибка загрузки данных", "error");
-                throw e;
-            } finally {
-                UI.toggleInteraction(true);
-            }
-        },
-
-        commit(mutator, { animate = true } = {}) {
-            try {
-                this.createSnapshot();
-                if (!this.data[this.monthKey]) {
-                    this.data[this.monthKey] = { start: 0, manualStart: false, incomes: [], debts: [], recurring: [], expenses: [] };
-                }
-                mutator(this.data);
-                UI.renderCurrentView({ animate });
-                SyncManager.queueChange(this.data);
-            } catch(e) {
-                console.error("Mutation failed", e);
-                UI.toast("Ошибка обновления данных", "error");
-            }
-        },
-
-        createSnapshot() {
-            if(this.historyStack.length > 20) this.historyStack.shift();
-            this.historyStack.push(JSON.stringify(this.data));
-            this.redoStack = [];
-        },
-
-        undo() {
-            if(!this.historyStack.length) return UI.toast("Нет действий для отмены", "warn");
-            this.redoStack.push(JSON.stringify(this.data));
-            this.data = JSON.parse(this.historyStack.pop());
-            UI.renderCurrentView({ animate: true });
-            SyncManager.queueChange(this.data);
-        },
-
-        redo() {
-            if(!this.redoStack.length) return UI.toast("Нет действий для возврата", "warn");
-            this.historyStack.push(JSON.stringify(this.data));
-            this.data = JSON.parse(this.redoStack.pop());
-            UI.renderCurrentView({ animate: true });
-            SyncManager.queueChange(this.data);
-        },
-
-        getMonthData() {
-            const k = this.monthKey;
-            if(!this.data[k]) this.data[k] = { start: 0, manualStart: false, incomes: [], debts: [], recurring: [], expenses: [] };
-            return this.data[k];
-        },
-
-        getCategoryColor(name) {
-            const c = this.data.settings.categories.find(x => x.name === name);
-            return c ? c.color : '#555';
-        }
-    };
-
-    // ========== CALCULATIONS CORE ==========
-    const Core = {
-        calculateMonth() {
-            const data = Store.getMonthData();
-            const daysInMonth = new Date(Store.year, Store.month + 1, 0).getDate();
-
-            let startBalance = 0;
-            if (data.manualStart) {
-                startBalance = data.start;
-            } else {
-                const prevKey = Store.getPrevMonthKey();
-                if (Store.data[prevKey]?.finalBalance !== undefined) {
-                    startBalance = Store.data[prevKey].finalBalance;
-                } else {
-                    startBalance = data.start || 0;
-                }
-            }
-
-            let running = startBalance;
-            let minBalance = startBalance;
-            let totalIncome = 0;
-            let totalExpense = 0;
-            let statsByCat = {};
-            const chartData = [];
-
-            Store.data.settings.categories.forEach(c => statsByCat[c.name] = 0);
-            statsByCat['Долги'] = 0; statsByCat['ЖКХ+Моб + Инет'] = 0; statsByCat['Прочее'] = 0;
-
-            for(let day = 1; day <= daysInMonth; day++){
-                let dailyChange = 0;
-                const process = (list, type) => {
-                    if(!list) return;
-                    for(const item of list) {
-                        if(item.day === day) {
-                            const amt = item.amount || 0;
-                            if(type === 'inc') {
-                                dailyChange += amt; totalIncome += amt;
-                            } else {
-                                dailyChange -= amt; totalExpense += amt;
-                                let cat = item.tag;
-                                if (!cat) {
-                                    if(type === 'debt') cat = 'Долги';
-                                    else if(type === 'rec') cat = 'ЖКХ+Моб + Инет';
-                                    else cat = 'Прочее';
-                                }
-                                statsByCat[cat] = (statsByCat[cat] || 0) + amt;
-                            }
-                        }
-                    }
-                };
-                process(data.incomes, 'inc');
-                process(data.debts, 'debt');
-                process(data.recurring, 'rec');
-                process(data.expenses, 'exp');
-                running += dailyChange;
-                if(running < minBalance) minBalance = running;
-                chartData.push(running);
-            }
-            data.finalBalance = running;
-            return { startBalance, finalBalance: running, minBalance, chartData, statsByCat, totalIncome, totalExpense };
-        }
-    };
-
-    // ========== SMART ADVISOR ==========
-    const SmartAdvisor = {
-        getInsights(stats) {
-            const insights = [];
-            const daysInMonth = new Date(Store.year, Store.month + 1, 0).getDate();
-            const today = new Date().getDate();
-            const isCurrentMonth = (Store.month === new Date().getMonth() && Store.year === new Date().getFullYear());
-            const monthProgress = isCurrentMonth ? (today / daysInMonth) : 1;
-
-            const income = stats.totalIncome;
-            const balance = stats.finalBalance;
-            const expenses = stats.totalExpense;
-
-            // 1. RISK: Cashflow Gap
-            if (stats.minBalance < 0) {
-                insights.push({
-                    type: 'risk',
-                    priority: 10,
-                    icon: '🚨',
-                    text: `Есть риск кассового разрыва. Баланс может упасть до <b>${Utils.formatMoney(stats.minBalance)}</b>.`
-                });
-            } else if (balance < 0) {
-                insights.push({
-                    type: 'risk',
-                    priority: 9,
-                    icon: '📉',
-                    text: `Расходы превышают доходы на <b>${Utils.formatMoney(Math.abs(balance))}</b>.`
-                });
-            }
-
-            // 2. TREND: Burn Rate (Only active in current month)
-            if (isCurrentMonth && income > 0 && expenses > 0) {
-                const projectedSpend = (expenses / today) * daysInMonth;
-                const safeSpendLimit = income * 0.9; // Target 10% savings
-
-                if (projectedSpend > income * 1.1) {
-                    insights.push({
-                        type: 'trend',
-                        priority: 8,
-                        icon: '🔥',
-                        text: `Если темп сохранится, расходы могут превысить доход.`
-                    });
-                } else if (projectedSpend < safeSpendLimit && today > 5) {
-                    insights.push({
-                        type: 'calm',
-                        priority: 5,
-                        icon: '🌱',
-                        text: `Идете с хорошим запасом. Можно отложить немного больше.`
-                    });
-                }
-            }
-
-            // 3. CONTEXT: Time of Month
-            if (isCurrentMonth) {
-                if (today <= 5) {
-                    insights.push({
-                        type: 'focus',
-                        priority: 4,
-                        icon: '📅',
-                        text: `Начало месяца — лучшее время запланировать обязательные платежи.`
-                    });
-                } else if (today >= daysInMonth - 3) {
-                    insights.push({
-                        type: 'insight',
-                        priority: 4,
-                        icon: '🏁',
-                        text: `Месяц почти завершен. Проверьте, все ли операции внесены.`
-                    });
-                }
-            }
-
-            // 4. INSIGHT: Zero Spend Streak (Placeholder logic)
-            // Ideally we'd scan recent days for 0 spend, but keeping it simple for now.
-            if (isCurrentMonth && expenses === 0 && today > 1) {
-                insights.push({
-                    type: 'calm',
-                    priority: 6,
-                    icon: '✨',
-                    text: `Чистый старт месяца. Пока никаких расходов!`
-                });
-            }
-
-            // Sort by Priority and Return Top 2
-            return insights.sort((a, b) => b.priority - a.priority).slice(0, 2);
-        }
-    };
-
-    // ========== HEATMAP CORE ==========
-    const HeatmapCore = {
-        buildDailyTotals(monthData) {
-            const totals = new Map(); // Day -> Amount
-            const daysInMonth = new Date(Store.year, Store.month + 1, 0).getDate();
-
-            // Initialize 0
-            for(let i=1; i<=daysInMonth; i++) totals.set(i, 0);
-
-            const aggregate = (list) => {
-                if (!list) return;
-                list.forEach(item => {
-                    const day = item.day;
-                    if (totals.has(day)) {
-                        totals.set(day, totals.get(day) + (item.amount || 0));
-                    }
-                });
-            };
-
-            aggregate(monthData.expenses);
-            aggregate(monthData.recurring);
-            aggregate(monthData.debts); // Debts usually outflow
-
-            return totals;
-        }
-    };
-
-    // ========== UI MODULE ==========
-    const UI = {
-        activeView: 'viewBudget',
-
-        toast(msg, type='success'){
-            const d = document.createElement('div');
-            const bg = type==='error'?'#da3633':(type==='warn'?'#d29922':(type==='info'?'#58a6ff':'#2ea043'));
-            d.style.cssText = `background:${bg}; color:white; padding:12px 20px; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.5); animation:popIn 0.3s; font-size:14px; min-width:200px; display:flex; justify-content:space-between; align-items:center; border:1px solid rgba(255,255,255,0.1);`;
-            d.innerHTML = `<span>${Utils.escapeHtml(msg)}</span>`;
-            Utils.$('toastWrap').appendChild(d);
-            setTimeout(()=> { d.style.opacity='0'; d.style.transform='translateY(10px)'; setTimeout(()=>d.remove(),300); }, 3000);
-        },
-
-        toggleInteraction(enabled) {
-            const shell = Utils.$('appShell');
-            if (enabled) shell.classList.remove('u-disabled-area');
-            else shell.classList.add('u-disabled-area');
-        },
-
-        setSyncStatus(status) {
-            const dot = Utils.$('syncIndicator');
-            const lbl = Utils.$('syncStatusLabel');
-            dot.className = 'user-dot'; // Reset
-
-            if(status === 'saved') {
-                dot.style.background = 'var(--accent)';
-                this.updateTimeAgo();
-            } else if(status === 'syncing') {
-                dot.classList.add('syncing');
-                lbl.textContent = 'Syncing...';
-                lbl.className = 'sync-text text-accent';
-            } else if(status === 'error') {
-                dot.classList.add('error');
-                lbl.textContent = 'Error';
-                lbl.className = 'sync-text text-danger';
-            } else if(status === 'offline') {
-                dot.classList.add('offline');
-                lbl.textContent = 'Offline';
-                lbl.className = 'sync-text text-warn';
-            }
-        },
-
-        updateTimeAgo() {
-            if (SyncManager.status === 'SYNCED' && SyncManager.lastSuccessSync) {
-                const lbl = Utils.$('syncStatusLabel');
-                lbl.className = 'sync-text text-muted';
-                lbl.textContent = 'Синхр: ' + Utils.timeSince(SyncManager.lastSuccessSync);
-            }
-        },
-
-        showAuthScreen() {
-            Utils.$('appShell').classList.add('u-hidden');
-            Utils.$('authView').classList.remove('u-hidden');
-            Utils.$('authLogin').value = '';
-            Utils.$('authPass').value = '';
-        },
-
-        showAppScreen() {
-            Utils.$('authView').classList.add('u-hidden');
-            Utils.$('appShell').classList.remove('u-hidden');
-            Utils.$('userNameDisplay').textContent = Auth.getLogin();
-            this.renderCurrentView({ animate: false });
-        },
-
-        switchView(viewId) {
-            this.activeView = viewId;
-            document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.target === viewId));
-            document.querySelectorAll('.view-section').forEach(s => { s.classList.remove('active'); if(s.id === viewId) s.classList.add('active'); });
-            this.closeDrawer();
-            this.renderCurrentView({ animate: true });
-        },
-
-        renderCurrentView({ animate = true } = {}) {
-            if(!Auth.isAuthenticated()) return;
-            if(!Store.data || !Store.data.settings) Store.initDefaults();
-
-            const stats = Core.calculateMonth();
-            this.renderSidebar(stats, animate);
-            if(this.activeView === 'viewBudget') this.renderBudget(stats);
-            else if(this.activeView === 'viewAnalytics') this.renderAnalytics();
-            else if(this.activeView === 'viewHistory') this.renderHistory();
-            else if(this.activeView === 'viewSettings') this.renderSettings();
-        },
-
-        openDrawer() { Utils.$('appDrawer').classList.add('open'); Utils.$('drawerBackdrop').classList.add('open'); },
-        closeDrawer() { Utils.$('appDrawer').classList.remove('open'); Utils.$('drawerBackdrop').classList.remove('open'); },
-
-        renderSidebar(stats, animate) {
-            Utils.$('finalBalance').innerText = Utils.formatMoney(stats.finalBalance);
-            Utils.$('finalBalance').className = `kpi-val ${stats.finalBalance >= 0 ? 'positive' : 'negative'}`;
-            Utils.$('freeCash').innerText = Utils.formatMoney(stats.finalBalance);
-
-            this.renderAdvisor(stats);
-            this.renderHeatmap();
-
-            ChartRenderer.drawBalance(stats.chartData, animate);
-            ChartRenderer.drawCategories(stats.statsByCat, animate);
-        },
-
-        renderAdvisor(stats) {
-            const el = Utils.$('advisorContent');
-            const panel = el.parentElement;
-            panel.style.borderLeftColor = '';
-
-            const insights = SmartAdvisor.getInsights(stats);
-
-            if (insights.length === 0) {
-                el.innerHTML = `<span class="text-muted" style="font-size:13px; font-style:italic;">Всё спокойно.</span>`;
-                panel.style.borderLeftColor = 'var(--glass-border)';
-                return;
-            }
-
-            // Set panel color based on highest priority
-            const typeMap = { 'risk': 'var(--danger)', 'trend': 'var(--warn)', 'insight': 'var(--purple)', 'calm': 'var(--accent)', 'focus': 'var(--info)' };
-            panel.style.borderLeftColor = typeMap[insights[0].type] || 'var(--glass-border)';
-
-            el.innerHTML = insights.map(i => `
-                <div class="advisor-item advisor-type-${i.type}">
-                    <div class="advisor-icon">${i.icon}</div>
-                    <div class="advisor-text">${i.text}</div>
-                </div>
-            `).join('');
-        },
-
-        renderHeatmap() {
-            const el = Utils.$('heatmapGrid');
-            const dailyTotals = HeatmapCore.buildDailyTotals(Store.getMonthData());
-            let maxSpend = 0;
-            dailyTotals.forEach(v => { if(v > maxSpend) maxSpend = v; });
-
-            const daysInMonth = new Date(Store.year, Store.month + 1, 0).getDate();
-            const cells = [];
-
-            for (let i = 1; i <= daysInMonth; i++) {
-                const amount = dailyTotals.get(i) || 0;
-                let opacity = 0.05; // Base visibility
-                if (maxSpend > 0 && amount > 0) {
-                    // Logarithmic scale for better visual spread
-                    opacity = 0.2 + (0.8 * (amount / maxSpend));
-                } else if (amount === 0) {
-                    opacity = 0.03;
-                }
-
-                const bg = `rgba(23, 192, 235, ${opacity})`; // Uses --teal color base
-                const borderColor = amount > 0 ? `rgba(23, 192, 235, ${opacity + 0.2})` : 'transparent';
-
-                cells.push(`
-                    <div class="heatmap-cell"
-                         style="background: ${bg}; border-color: ${borderColor}"
-                         data-date="${i} ${Const.MONTHS[Store.month]}"
-                         data-amount="${amount > 0 ? Utils.formatMoney(amount) : 'Нет трат'}">
-                    </div>
-                `);
-            }
-            el.innerHTML = cells.join('');
-        },
-
-        renderBudget(stats) {
-            const data = Store.getMonthData();
-            Utils.$('currentMonthLabel').innerText = `${Const.MONTHS[Store.month]} ${Store.year}`;
-            const inpS = Utils.$('startMoney');
-            inpS.disabled = !data.manualStart;
-            Utils.$('manualStartCheck').checked = data.manualStart;
-
-            inpS.placeholder = data.manualStart ? '0' : `Авто: ${Math.round(stats.startBalance)}`;
-            inpS.value = data.manualStart ? String(data.start) : '';
-
-            this.renderList('incomes', data.incomes);
-            this.renderList('debts', data.debts);
-            this.renderList('recurring', data.recurring);
-            this.renderList('expenses', data.expenses);
-            this.renderWishlist();
-        },
-
-        renderList(type, list) {
-            const el = Utils.$(type+'List');
-            if(!list || list.length === 0) { el.innerHTML = `<div class="empty-state">Список пуст</div>`; return; }
-            el.innerHTML = list.map((item, idx) => {
-                const isExp = type === 'expenses' || type === 'recurring' || type === 'debts';
-                const displayTag = item.tag || (type === 'recurring' ? 'ЖКХ+Моб + Инет' : (type === 'debts' ? 'Долги' : 'Прочее'));
-                const tColor = isExp ? Store.getCategoryColor(displayTag) : '#444';
-
-                return `
-          <div class="row-item" data-idx="${idx}" data-type="${type}">
-             <input type="number" class="day-input action-day" min="1" max="31" value="${String(item.day)}" title="День">
-             <input type="number" class="amount-input action-amount" placeholder="0" value="${String(item.amount||'')}" min="0">
-             <textarea class="desc-input action-desc" placeholder="Описание" title="${Utils.escapeHtml(item.desc)}">${Utils.escapeHtml(item.desc||'')}</textarea>
-             ${isExp ? `<button type="button" class="tag-badge cat-btn action-cat" style="background:${tColor}" title="${Utils.escapeHtml(displayTag)} (Нажми чтобы сменить)">${Utils.escapeHtml(displayTag)}</button>` : '<span></span>'}
-             ${type==='expenses' ? `<button type="button" class="btn icon-only ghost btn-fav action-fav" title="Добавить в избранное">★</button>` : '<span></span>'}
-             <button type="button" class="btn icon-only ghost danger btn-del action-del" title="Удалить">✕</button>
-          </div>`;
-            }).join('');
-        },
-
-        renderWishlist() {
-            const list = Utils.$('wishList');
-            if(Store.data.wishlist.length === 0) { list.innerHTML = `<div class="empty-state">Список пуст</div>`; return; }
-            list.innerHTML = Store.data.wishlist.map((item, idx) => `
-        <div class="row-item wishlist-layout" data-idx="${idx}" data-type="wishlist">
-           <textarea class="desc-input action-w-desc" placeholder="Название мечты" title="${Utils.escapeHtml(item.desc)}">${Utils.escapeHtml(item.desc)}</textarea>
-           <input type="number" class="amount-input action-w-amount" placeholder="Цена" value="${String(item.amount||'')}" min="0">
-           <button type="button" class="btn icon-only ghost primary action-w-buy" title="Купить">🛒</button>
-           <button type="button" class="btn icon-only ghost danger action-w-del" title="Удалить">✕</button>
-        </div>`).join('');
-        },
-
-        setupDelegation() {
-            const main = document.body;
-            // Update time ago every minute
-            setInterval(() => UI.updateTimeAgo(), 60000);
-
-            main.addEventListener('click', (e) => {
-                const target = e.target;
-
-                // ADD ROW - NO ANIMATION
-                const addBtn = target.closest('.action-add-row');
-                if (addBtn) {
-                    const type = addBtn.dataset.addType;
-                    Store.commit((data) => {
-                        if (type === 'wishlist') {
-                            data.wishlist.push({desc:'', amount:0});
-                        } else {
-                            let defaultTag = null;
-                            if(type === 'incomes') defaultTag = 'Зарплата';
-                            else if(type === 'debts') defaultTag = 'Долги';
-                            else if(type === 'recurring') defaultTag = 'ЖКХ+Моб + Инет';
-                            else if(type === 'expenses') defaultTag = data.settings.categories[0].name;
-
-                            if(!data[Store.monthKey]) data[Store.monthKey] = {incomes:[], debts:[], recurring:[], expenses:[], start:0, manualStart:false};
-                            data[Store.monthKey][type].push({ day: Store.currentDate.getDate(), amount: 0, desc: '', tag: defaultTag });
-                        }
-                    }, { animate: false });
-                    setTimeout(() => {
-                        const inputs = document.querySelectorAll(`#${type}List .amount-input`);
-                        if(inputs.length) inputs[inputs.length-1].focus();
-                    }, 50);
-                    return;
-                }
-
-                // DELETE - ANIMATE
-                const row = target.closest('.row-item');
-                if (target.closest('.action-setting-del') && row) {
-                    if (confirm('Удалить шаблон?')) {
-                        Store.commit(d => d.settings[row.dataset.list].splice(row.dataset.idx, 1));
-                    }
-                    return;
-                }
-                if (target.closest('.action-cat-del') && row) {
-                    if (confirm('Удалить категорию?')) {
-                        Store.commit(d => d.settings.categories.splice(row.dataset.idx, 1));
-                    }
-                    return;
-                }
-                if ((target.closest('.action-del') || target.closest('.action-w-del')) && row) {
-                    const type = row.dataset.type;
-                    const idx = parseInt(row.dataset.idx);
-                    Store.commit((data) => {
-                        if(type === 'wishlist') data.wishlist.splice(idx, 1);
-                        else if(data[Store.monthKey] && data[Store.monthKey][type]) data[Store.monthKey][type].splice(idx, 1);
-                    }, { animate: true });
-                    return;
-                }
-
-                // CATEGORY PICKER
-                if (target.closest('.action-setting-cat') && row) {
-                    UI.openCategoryPicker(Store.data.settings[row.dataset.list][row.dataset.idx].tag, (t) => {
-                        Store.commit(d => d.settings[row.dataset.list][row.dataset.idx].tag = t);
-                    });
-                    return;
-                }
-                if (target.closest('.action-cat') && row) {
-                    const type = row.dataset.type;
-                    const item = Store.getMonthData()[type][row.dataset.idx];
-                    if(item) {
-                        UI.openCategoryPicker(item.tag, (newTag) => {
-                            Store.commit((data) => { data[Store.monthKey][type][row.dataset.idx].tag = newTag; });
-                        });
-                    }
-                    return;
-                }
-
-                // FAVORITE / BUY
-                if(target.closest('.action-fav') && row) {
-                    const type = row.dataset.type;
-                    const item = Store.getMonthData()[type][row.dataset.idx];
-                    if(item) {
-                        Store.commit(d => d.settings.favorites.push({id:Utils.genId(), desc:item.desc, amount:item.amount, tag:item.tag}));
-                        UI.toast("Добавлено в Избранное");
-                    }
-                }
-                if(target.closest('.action-w-buy') && row) {
-                    const idx = parseInt(row.dataset.idx);
-                    const item = Store.data.wishlist[idx];
-                    Store.commit(data => {
-                        if(!data[Store.monthKey]) return;
-                        data[Store.monthKey].expenses.push({day:Store.currentDate.getDate(), amount:item.amount, desc:item.desc, tag:'Досуг'});
-                        data.wishlist.splice(idx, 1);
-                    }, { animate: true });
-                    UI.toast("Мечта исполнена!");
-                }
-            });
-
-            main.addEventListener('change', (e) => {
-                const t = e.target;
-                const row = t.closest('.row-item');
-
-                // Settings Inputs
-                if(t.classList.contains('action-setting-amount')) {
-                    Store.commit(d => d.settings[row.dataset.list][row.dataset.idx].amount = Math.abs(parseFloat(t.value)||0));
-                    return;
-                }
-                if(t.classList.contains('action-setting-desc')) {
-                    Store.commit(d => d.settings[row.dataset.list][row.dataset.idx].desc = t.value);
-                    return;
-                }
-                if(t.classList.contains('action-cat-color')) {
-                    Store.commit(d => d.settings.categories[row.dataset.idx].color = t.value);
-                    return;
-                }
-                if(t.classList.contains('action-cat-name')) {
-                    Store.commit(d => d.settings.categories[row.dataset.idx].name = t.value);
-                    return;
-                }
-                if(t.classList.contains('action-cat-limit')) {
-                    Store.commit(d => d.settings.categories[row.dataset.idx].limit = Math.abs(parseFloat(t.value)||0));
-                    return;
-                }
-
-                // Budget Inputs - ANIMATE
-                if(!row) return;
-                const idx = parseInt(row.dataset.idx);
-                const type = row.dataset.type;
-
-                if(type !== 'wishlist' && Store.getMonthData()[type]) {
-                    if(t.classList.contains('action-amount')) {
-                        Store.commit(data => { data[Store.monthKey][type][idx].amount = Math.abs(parseFloat(t.value)||0); }, { animate: true });
-                    }
-                    if(t.classList.contains('action-desc')) {
-                        Store.commit(data => { data[Store.monthKey][type][idx].desc = t.value; }, { animate: false });
-                    }
-                    if(t.classList.contains('action-day')) {
-                        let val = parseInt(t.value);
-                        const maxDays = new Date(Store.year, Store.month + 1, 0).getDate();
-                        if(isNaN(val) || val < 1) val = 1;
-                        if(val > maxDays) val = maxDays;
-                        if(t.value !== String(val)) t.value = String(val);
-                        Store.commit(data => { data[Store.monthKey][type][idx].day = val; }, { animate: true });
-                    }
-                }
-                else if(type === 'wishlist') {
-                    if(t.classList.contains('action-w-amount')) {
-                        Store.commit(data => { data.wishlist[idx].amount = Math.abs(parseFloat(t.value)||0); }, { animate: false });
-                    }
-                    if(t.classList.contains('action-w-desc')) {
-                        Store.commit(data => { data.wishlist[idx].desc = t.value; }, { animate: false });
-                    }
-                }
-            });
-
-            // Day Picker Invocation
-            main.addEventListener('click', (e) => {
-                if(e.target.classList.contains('action-day')) {
-                    const row = e.target.closest('.row-item');
-                    UI.showDayPicker(e.target, (d) => {
-                        Store.commit(data => { data[Store.monthKey][row.dataset.type][row.dataset.idx].day = d; }, { animate: true });
-                    });
-                }
-            });
-        },
-
-        showDayPicker(input, cb) {
-            const p = Utils.$('dayPicker'); p.innerHTML = '';
-            const maxDays = new Date(Store.year, Store.month + 1, 0).getDate();
-            for(let i=1; i<=maxDays; i++){
-                const d = document.createElement('div'); d.innerText=String(i);
-                d.onmousedown = (e) => { e.preventDefault(); cb(i); p.style.display='none'; };
-                p.appendChild(d);
-            }
-            const rect = input.getBoundingClientRect();
-            let left = rect.left;
-            if(left + 250 > window.innerWidth) left = window.innerWidth - 260;
-            p.style.top = (rect.bottom + window.scrollY + 5) + 'px';
-            p.style.left = left + 'px';
-            p.style.display = 'grid';
-
-            const hide = (e) => { if(e.target!==input && !p.contains(e.target)) { p.style.display='none'; document.removeEventListener('click', hide); }};
-            setTimeout(()=>document.addEventListener('click', hide), 100);
-        },
-
-        renderSettings() {
-            const render = (id, listName, hasCat) => {
-                const el = Utils.$(id);
-                const list = Store.data.settings[listName];
-                if(!list || list.length===0) { el.innerHTML='<div class="empty-state">Пусто</div>'; return; }
-                el.innerHTML = list.map((item, idx) => {
-                    const tColor = hasCat ? Store.getCategoryColor(item.tag) : '';
-                    const layoutClass = hasCat ? 'settings-cat-layout' : 'settings-layout';
-                    // UX Fix: value is empty string if amount is 0, showing placeholder
-                    const displayAmount = item.amount === 0 ? '' : item.amount;
-
-                    return `<div class="row-item ${layoutClass}" data-idx="${idx}" data-list="${listName}">
-                 <input type="number" class="amount-input action-setting-amount" placeholder="0" value="${displayAmount}">
-                 <textarea class="desc-input action-setting-desc" placeholder="Название">${Utils.escapeHtml(item.desc)}</textarea>
-                 ${hasCat ? `<button type="button" class="tag-badge action-setting-cat" style="background:${tColor}">${Utils.escapeHtml(item.tag||'?')}</button>` : ''}
-                 <button type="button" class="btn icon-only ghost danger action-setting-del">✕</button>
-             </div>`
-                }).join('');
-            };
-            render('manageTemplatesList', 'templates', false);
-            render('manageFavoritesList', 'favorites', true);
-
-            Utils.$('manageCategoriesList').innerHTML = Store.data.settings.categories.map((item, idx) => `
-         <div class="row-item cat-def-layout" data-idx="${idx}">
-             <input type="color" value="${item.color}" class="action-cat-color" style="height:30px; cursor:pointer; padding:0; border:none;">
-             <input type="text" value="${Utils.escapeHtml(item.name)}" class="action-cat-name">
-             <input type="number" value="${item.limit === 0 ? '' : item.limit}" class="action-cat-limit" placeholder="Лимит (0)">
-             <button type="button" class="btn icon-only ghost danger action-cat-del">✕</button>
-         </div>`).join('');
-        },
-
-        renderHistory() {
-            const el = Utils.$('historyFullList');
-            const keys = Object.keys(Store.data).filter(k=>k.match(/^\d{4}-\d{2}$/)).sort().reverse();
-            if(!keys.length) { el.innerHTML = '<div class="empty-state">История периодов пуста.</div>'; return; }
-            el.innerHTML = keys.map(k => {
-                const d = Store.data[k];
-                let inc=0, exp=0;
-                (d.incomes||[]).forEach(i=>inc+=i.amount);
-                [...(d.expenses||[]), ...(d.debts||[]), ...(d.recurring||[])].forEach(i=>exp+=i.amount);
-                return `<div class="row-item history-layout">
-              <b>${k}</b><span class="text-accent">+${Utils.formatMoney(inc)}</span><span class="text-danger">-${Utils.formatMoney(exp)}</span><span class="text-bold text-right">${Utils.formatMoney(d.finalBalance)}</span>
-          </div>`;
-            }).join('');
-        },
-
-        renderAnalytics() {
-            if(window.histChartInst) { window.histChartInst.destroy(); window.histChartInst=null; }
-            const ctx = Utils.$('historyChart');
-            // Safe check for canvas context (prevents crash on fast tab switching)
-            if(!ctx) return;
-
-            const keys = Object.keys(Store.data).filter(k => k.match(/^\d{4}-\d{2}$/)).sort().slice(-6);
-            const incs=[], exps=[];
-            keys.forEach(k => {
-                const d = Store.data[k]; let i=0, e=0;
-                (d.incomes||[]).forEach(x=>i+=x.amount);
-                [...(d.expenses||[]), ...(d.debts||[]), ...(d.recurring||[])].forEach(x=>e+=x.amount);
-                incs.push(i); exps.push(e);
-            });
-
-            window.histChartInst = new window.Chart(ctx, {
-                type: 'bar',
-                data: { labels: keys, datasets: [{ label:'Доходы', data:incs, backgroundColor:'#2ea043', borderRadius:4 }, { label:'Расходы', data:exps, backgroundColor:'#da3633', borderRadius:4 }] },
-                options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#8b949e'}}}, scales:{y:{grid:{color:'rgba(255,255,255,0.1)'}, ticks:{color:'#8b949e'}}, x:{ticks:{color:'#8b949e'}}} }
-            });
-
-            const map={};
-            keys.forEach(k=>{
-                const d=Store.data[k];
-                [...(d.expenses||[]), ...(d.recurring||[])].forEach(x=> { const t=x.tag||(x.category?x.category:'Прочее'); map[t]=(map[t]||0)+x.amount; });
-            });
-            const sorted = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5);
-            Utils.$('topCategoriesList').innerHTML = sorted.map(([n,a])=>`<div class="row-item analytics-layout"><div>${Utils.escapeHtml(n)}</div><div class="text-bold">${Utils.formatMoney(a)}</div></div>`).join('');
-        },
-
-        pickerCallback: null,
-        openPicker(items, cb) {
-            if(!items.length) return this.toast("Список пуст", "warn");
-            this.pickerCallback = cb;
-            Utils.$('pickerList').innerHTML = items.map(i => `<div class="picker-item-row"><input type="checkbox" value="${i.id}" id="pk_${i.id}" class="picker-checkbox"><label for="pk_${i.id}" class="picker-label"><span>${Utils.escapeHtml(i.desc)}</span><b>${String(i.amount)}</b></label></div>`).join('');
-            Utils.$('pickerModal').style.display='flex';
-            Utils.$('pickerConfirmBtn').focus();
-        },
-
-        openCategoryPicker(currentTag, cb) {
-            const el = Utils.$('catList');
-            el.innerHTML = Store.data.settings.categories.map(c => `
-        <div class="cat-item" onclick="UI.finishCatPicker('${c.name}')">
-            <div class="cat-dot" style="background:${c.color}"></div>
-            <span>${Utils.escapeHtml(c.name)}</span>
-        </div>`).join('');
-            Utils.$('catModal').style.display = 'flex';
-            this._catCb = cb;
-        },
-        finishCatPicker(val) {
-            if(this._catCb) this._catCb(val);
-            Utils.$('catModal').style.display = 'none';
-        }
-    };
-
-    // ========== CHARTS HELPERS ==========
-    const ChartRenderer = {
-        balChart: null, catChart: null,
-
-        drawBalance(dataPoints, animate = true) {
-            const labels = dataPoints.map((_, i) => String(i+1));
-            const todayLinePlugin = {
-                id: 'todayLine',
-                afterDatasetsDraw(chart) {
-                    const today = new Date();
-                    if (Store.month !== today.getMonth() || Store.year !== today.getFullYear()) return;
-
-                    const meta = chart.getDatasetMeta(0);
-                    const dayIndex = today.getDate() - 1;
-
-                    if (dayIndex >= 0 && dayIndex < meta.data.length) {
-                        const ctx = chart.ctx;
-                        const x = meta.data[dayIndex].x;
-                        const top = chart.scales.y.top;
-                        const bottom = chart.scales.y.bottom;
-                        ctx.save();
-                        ctx.beginPath();
-                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-                        ctx.lineWidth = 1;
-                        ctx.setLineDash([4, 4]);
-                        ctx.moveTo(x, top);
-                        ctx.lineTo(x, bottom);
-                        ctx.stroke();
-                        ctx.restore();
-                    }
-                }
-            };
-
-            const animConfig = animate ? { duration: 400, easing: 'easeOutQuart' } : false;
-
-            if (this.balChart) {
-                this.balChart.data.labels = labels;
-                this.balChart.data.datasets[0].data = dataPoints;
-                this.balChart.options.animation = animConfig;
-                this.balChart.update();
-            } else {
-                const ctx = Utils.$('balanceChart');
-                if(!ctx) return;
-                this.balChart = new Chart(ctx, {
-                    type: 'line',
-                    data: { labels, datasets: [{ label: 'Баланс', data: dataPoints, borderColor: '#2ea043', backgroundColor: 'rgba(46,160,67,0.1)', fill: true, tension: 0.3, pointRadius: 0 }] },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        animation: false,
-                        plugins: { legend: { display: false } },
-                        scales: { x: { display: false }, y: { display: false } },
-                        elements: { point: { hitRadius: 10 } }
-                    },
-                    plugins: [todayLinePlugin]
-                });
-            }
-        },
-
-        drawCategories(stats, animate = true) {
-            const labels = Object.keys(stats).filter(k=>stats[k]>0);
-            const data = labels.map(k=>stats[k]);
-            const colors = labels.map(k=>Store.getCategoryColor(k));
-
-            const animConfig = animate ? { duration: 400, easing: 'easeOutQuart' } : false;
-
-            if (this.catChart) {
-                this.catChart.data.labels = labels;
-                this.catChart.data.datasets[0].data = data;
-                this.catChart.data.datasets[0].backgroundColor = colors;
-                this.catChart.options.animation = animConfig;
-                this.catChart.update();
-            } else {
-                if(data.length===0) return;
-                const ctx = Utils.$('categoryChart');
-                if(!ctx) return;
-                this.catChart = new Chart(ctx, {
-                    type: 'doughnut',
-                    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        animation: false,
-                        plugins: { legend: { display: false } },
-                        cutout: '70%'
-                    }
-                });
-            }
-        }
-    };
-
-    // ========== APP INITIALIZATION ==========
-    document.addEventListener('DOMContentLoaded', () => {
-        // Init Managers
-        SyncManager.init();
-        UI.setupDelegation();
-
-        // 1. Auth Handlers
-        Utils.$('loginBtn').addEventListener('click', async () => {
-            const login = Utils.$('authLogin').value.trim();
-            const pass = Utils.$('authPass').value.trim();
-            if(!login || !pass) return UI.toast('Введите данные', 'warn');
-
-            const isOnline = await Api.probeConnection();
-            if (!isOnline) {
-                return UI.toast('Для входа требуется стабильный интернет', 'error');
-            }
-
-            const btn = Utils.$('loginBtn');
-            btn.textContent = 'Вход...'; btn.disabled = true;
-
-            try {
-                // Task 1: API returns token, we setSession instead of password
-                const res = await Api.login(login, pass);
-                if (res.ok) {
-                    Auth.setSession(login, res.token);
-                    await Store.load();
-                    UI.showAppScreen();
-                    UI.toast(`Добро пожаловать, ${login}!`);
-                } else {
-                    UI.toast(res.status === 401 ? 'Неверный пароль' : 'Ошибка: ' + res.status, 'error');
-                }
-            } catch (e) {
-                console.error(e);
-                UI.toast(e.message === 'OFFLINE' ? 'Нет сети' : 'Ошибка соединения', 'error');
-            } finally {
-                btn.textContent = 'Вход'; btn.disabled = false;
-            }
-        });
-
-        Utils.$('registerBtn').addEventListener('click', async () => {
-            const login = Utils.$('authLogin').value.trim();
-            const pass = Utils.$('authPass').value.trim();
-            if(!login || !pass) return UI.toast('Введите данные', 'warn');
-
-            const isOnline = await Api.probeConnection();
-            if (!isOnline) {
-                return UI.toast('Регистрация требует интернет', 'error');
-            }
-
-            const btn = Utils.$('registerBtn'); btn.disabled = true;
-            try {
-                const res = await Api.register(login, pass);
-                if (res.ok) {
-                    // Assuming register logs us in directly with password for now,
-                    // or user has to click login. We assume session isn't automatic unless returned.
-                    // For UX we ask to login or if response has token use it.
-                    // Simplified: just auth with password locally as legacy or ask to login.
-                    // Better: Autologin with what we have if backend allows.
-                    // We'll reset and load.
-                    Auth.setSession(login, pass); // Temp/Legacy fallback if reg doesn't return token
-                    Store.reset(); Store.initDefaults();
-                    await Store.load();
-                    UI.showAppScreen();
-                    SyncManager.queueChange(Store.data);
-                    UI.toast('Аккаунт создан!');
-                } else {
-                    UI.toast('Ошибка регистрации: ' + res.status, 'error');
-                }
-            } catch (e) {
-                UI.toast('Ошибка сети', 'error');
-            } finally {
-                btn.disabled = false;
-            }
-        });
-
-        Utils.$('logoutBtn').addEventListener('click', () => {
-            if(confirm('Выйти из аккаунта?')) Auth.logout();
-        });
-
-        // 2. Navigation
-        const on = (id, evt, fn) => { const el = Utils.$(id); if(el) el.addEventListener(evt, fn); };
-
-        on('toggleDrawerBtn', 'click', () => UI.openDrawer());
-        on('closeDrawerBtn', 'click', () => UI.closeDrawer());
-        on('drawerBackdrop', 'click', () => UI.closeDrawer());
-        document.querySelectorAll('.nav-item').forEach(b => b.onclick = () => UI.switchView(b.dataset.target));
-
-        const changeMonth = (delta) => {
-            Store.currentDate.setMonth(Store.currentDate.getMonth()+delta);
-            UI.renderCurrentView({ animate: true });
-        };
-        on('prevMonthBtn', 'click', () => changeMonth(-1));
-        on('nextMonthBtn', 'click', () => changeMonth(1));
-        on('todayBtn', 'click', () => {
-            Store.currentDate = new Date();
-            UI.renderCurrentView({ animate: true });
-        });
-
-        // 3. Data Controls
-        on('startMoney', 'change', (e) => Store.commit(d => d[Store.monthKey].start = Math.abs(parseFloat(e.target.value)||0), { animate: true }));
-        on('manualStartCheck', 'change', (e) => Store.commit(d => d[Store.monthKey].manualStart = e.target.checked, { animate: true }));
-        on('undoBtn', 'click', () => Store.undo());
-        on('redoBtn', 'click', () => Store.redo());
-
-        // 4. Import / Export
-        on('exportBtn', 'click', () => {
-            if(!Auth.isAuthenticated()) return;
-            const dataStr = JSON.stringify(Store.data, null, 2);
-            const blob = new Blob([dataStr], {type: "application/json"});
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `budget_${Auth.getLogin()}_backup_${new Date().toISOString().slice(0,10)}.json`;
-            link.click();
-            URL.revokeObjectURL(url);
-        });
-
-        on('importBtn', 'click', () => {
-            if(confirm('⚠️ ИМПОРТ ЗАМЕНИТ ТЕКУЩИЕ ДАННЫЕ.\n\nУбедитесь, что у вас есть резервная копия.\nПродолжить?')) {
-                Utils.$('importFile').click();
-            }
-        });
-
-        on('importFile', 'change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = async (ev) => {
-                try {
-                    const parsed = JSON.parse(ev.target.result);
-                    if(!parsed.settings || !Array.isArray(parsed.settings.categories)) throw new Error("Неверный формат JSON");
-
-                    UI.toggleInteraction(false);
-                    UI.toast('Импорт успешен. Данные обновлены.', 'info');
-
-                    Store.createSnapshot();
-                    Store.data = parsed;
-                    SyncManager.queueChange(Store.data);
-
-                    Store.initDefaults();
-                    UI.renderCurrentView({ animate: false });
-                } catch(err) {
-                    console.error(err);
-                    UI.toast('Ошибка файла: Неверный формат', 'error');
-                } finally {
-                    UI.toggleInteraction(true);
-                }
-            };
-            reader.readAsText(file);
-            e.target.value = '';
-        });
-
-        // 5. Pickers
-        on('pickerConfirmBtn', 'click', () => {
-            const ids = Array.from(document.querySelectorAll('#pickerList input:checked')).map(x=>x.value);
-            if(UI.pickerCallback) UI.pickerCallback(ids);
-            Utils.$('pickerModal').style.display='none';
-        });
-        document.querySelectorAll('.closeModal').forEach(b => b.onclick = (e) => e.target.closest('.modal-overlay').style.display='none');
-
-        on('loadTemplateBtn', 'click', () => UI.openPicker(Store.data.settings.templates, (ids) => {
-            const items = Store.data.settings.templates.filter(x => ids.includes(x.id));
-            Store.commit(data => {
-                items.forEach(t => data[Store.monthKey].recurring.push({day:1, amount:t.amount, desc:t.desc, tag:'ЖКХ+Моб + Инет'}));
-            }, { animate: false });
-        }));
-
-        on('loadFavoriteBtn', 'click', () => UI.openPicker(Store.data.settings.favorites, (ids) => {
-            const items = Store.data.settings.favorites.filter(x => ids.includes(x.id));
-            Store.commit(data => {
-                items.forEach(t => data[Store.monthKey].expenses.push({day:Store.currentDate.getDate(), amount:t.amount, desc:t.desc, tag:t.tag||'Прочее'}));
-            }, { animate: false });
-        }));
-
-        on('createNewTemplateBtn', 'click', () => { Store.commit(d => d.settings.templates.push({id:Utils.genId(), desc:'', amount:0}), { animate: false }); });
-        on('createNewFavoriteBtn', 'click', () => { Store.commit(d => d.settings.favorites.push({id:Utils.genId(), desc:'', amount:0, tag:d.settings.categories[0].name}), { animate: false }); });
-        on('createNewCategoryBtn', 'click', () => { Store.commit(d => d.settings.categories.push({id:Utils.genId(), name:'Новая категория', color:'#484f58', limit:0}), { animate: false }); });
-
-        // 6. Global Keys
-        document.addEventListener('keydown', (e) => {
-            if(e.key === 'Escape') {
-                const picker = Utils.$('dayPicker');
-                if(picker.style.display && picker.style.display !== 'none') { picker.style.display='none'; return; }
-                const modals = document.querySelectorAll('.modal-overlay');
-                let closed = false;
-                modals.forEach(m => { if(m.style.display === 'flex') { m.style.display='none'; closed=true; } });
-                if(closed) return;
-                const drawer = Utils.$('appDrawer');
-                if(drawer.classList.contains('open')) UI.closeDrawer();
-            }
-        });
-    });
-</script>
+  </div>
+
+  <div class="modal" id="accountMenuModal" aria-hidden="true">
+    <div class="modal__backdrop" data-close-modal="accountMenuModal"></div>
+    <div class="modal__dialog glass-card modal__dialog--sm modal__dialog--account">
+      <div class="modal__head modal__head--account">
+        <div class="modal__head-bar">
+          <p class="eyebrow">Аккаунт</p>
+          <button class="modal__close" type="button" data-close-modal="accountMenuModal" aria-label="Закрыть">×</button>
+        </div>
+        <h3 id="accountMenuTitle">Сессия и синхронизация</h3>
+        <p class="modal__subtext" id="accountMenuSubtext">Сессия активна в текущем браузере.</p>
+      </div>
+      <div class="account-menu">
+        <div class="account-menu__hero">
+          <div class="account-menu__identity">
+            <div class="account-menu__avatar" id="accountMenuAvatar" aria-hidden="true">A</div>
+            <div class="account-menu__identity-copy">
+              <strong id="accountMenuIdentity">Аккаунт</strong>
+              <span id="accountMenuMeta">Текущая сессия браузера</span>
+            </div>
+          </div>
+          <span class="account-menu__status" id="accountMenuStatus">Локально</span>
+        </div>
+        <div class="account-menu__state" id="accountMenuState">Состояние подключения</div>
+        <div class="account-menu__actions">
+          <button class="btn btn--primary btn--block" id="accountSyncNowBtn" type="button">Синхронизировать сейчас</button>
+          <button class="btn btn--ghost btn--block" id="accountPasswordInfoBtn" type="button">Смена пароля</button>
+          <p class="account-menu__hint" id="accountPasswordHint">Смена пароля появится после поддержки отдельного endpoint в API.</p>
+          <button class="btn btn--secondary btn--block" id="accountLogoutBtn" type="button">Выйти из аккаунта</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="syncChoiceModal" aria-hidden="true">
+    <div class="modal__backdrop" data-close-modal="syncChoiceModal"></div>
+    <div class="modal__dialog glass-card modal__dialog--sm">
+      <button class="modal__close" type="button" data-close-modal="syncChoiceModal" aria-label="Закрыть">×</button>
+      <div class="modal__head">
+        <p class="eyebrow">Выбор источника</p>
+        <h3 id="syncChoiceTitle">Данные аккаунта</h3>
+        <p class="modal__subtext">Мы нашли и локальные данные, и данные в аккаунте. Выберите, что считать основным источником.</p>
+      </div>
+      <div class="account-choice">
+        <article class="account-choice__card">
+          <strong>Оставить текущие данные</strong>
+          <p id="syncChoiceLocalSummary">Текущие локальные данные</p>
+          <button class="btn btn--primary btn--block" id="syncChoiceKeepLocalBtn" type="button">Оставить локальные и синхронизировать</button>
+        </article>
+        <article class="account-choice__card">
+          <strong>Загрузить облачные данные</strong>
+          <p id="syncChoiceCloudSummary">Данные в аккаунте</p>
+          <button class="btn btn--secondary btn--block" id="syncChoiceUseCloudBtn" type="button">Заменить текущие данными из аккаунта</button>
+        </article>
+      </div>
+      <button class="btn btn--ghost btn--block" id="syncChoiceCancelBtn" type="button">Отменить вход и остаться локально</button>
+    </div>
+  </div>
+
+  <div class="modal" id="transactionModal" aria-hidden="true">
+    <div class="modal__backdrop" data-close-modal="transactionModal"></div>
+    <div class="modal__dialog glass-card">
+      <button class="modal__close" type="button" data-close-modal="transactionModal" aria-label="Закрыть">×</button>
+      <div class="modal__head">
+        <p class="eyebrow">Редактирование</p>
+        <h3>Изменить операцию</h3>
+      </div>
+
+      <form id="editTransactionForm" class="form-grid" novalidate>
+        <input id="editTransactionId" type="hidden">
+
+        <div class="field field--segmented">
+          <span class="field__label">Тип</span>
+          <div class="segment-control" id="editTypeSwitch">
+            <label class="segment-control__item">
+              <input type="radio" name="editTransactionType" value="expense" checked>
+              <span>Расход</span>
+            </label>
+            <label class="segment-control__item">
+              <input type="radio" name="editTransactionType" value="income">
+              <span>Доход</span>
+            </label>
+          </div>
+        </div>
+
+        <label class="field">
+          <span class="field__label">Сумма</span>
+          <input id="editAmountInput" type="number" step="0.01" min="0">
+        </label>
+
+        <label class="field">
+          <span class="field__label">Категория</span>
+          <input id="editCategoryInput" type="hidden">
+          <button class="category-trigger category-trigger--form" id="editCategoryTriggerBtn" type="button" aria-label="Выбрать категорию для операции">
+            <span class="category-trigger__swatch"></span>
+            <span class="category-trigger__label">Категория</span>
+          </button>
+        </label>
+
+        <label class="field">
+          <span class="field__label">Подтип</span>
+          <select id="editFlowKindInput">
+            <option value="standard">Обычный</option>
+            <option value="recurring">Регулярный платеж</option>
+            <option value="debt">Долг / кредит</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field__label">Теги</span>
+          <input id="editTagsInput" type="text" placeholder="#отпуск2026, #семья">
+        </label>
+
+        <label class="field">
+          <span class="field__label">Дата</span>
+          <input id="editDateInput" type="date">
+        </label>
+
+        <label class="field field--full">
+          <span class="field__label">Описание</span>
+          <textarea id="editDescriptionInput" rows="3"></textarea>
+        </label>
+
+        <div class="field field--full">
+          <button class="btn btn--primary btn--block" type="submit">Сохранить изменения</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="categoryModal" aria-hidden="true">
+    <div class="modal__backdrop" data-close-modal="categoryModal"></div>
+    <div class="modal__dialog glass-card modal__dialog--sm">
+      <button class="modal__close" type="button" data-close-modal="categoryModal" aria-label="Закрыть">×</button>
+      <div class="modal__head">
+        <p class="eyebrow">Категория</p>
+        <h3 id="categoryModalTitle">Новая категория</h3>
+      </div>
+
+      <form id="categoryForm" class="stack-form" novalidate>
+        <input id="categoryIdInput" type="hidden">
+
+        <label class="field">
+          <span class="field__label">Название</span>
+          <input id="categoryNameInput" type="text" maxlength="48" placeholder="Например, Маркетплейсы">
+        </label>
+
+        <div class="field field--segmented">
+          <span class="field__label">Тип</span>
+          <div class="segment-control segment-control--compact" id="categoryTypeSwitch">
+            <label class="segment-control__item">
+              <input type="radio" name="categoryType" value="expense" checked>
+              <span>Расход</span>
+            </label>
+            <label class="segment-control__item">
+              <input type="radio" name="categoryType" value="income">
+              <span>Доход</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="field__label">Цвет</span>
+          <div class="color-field">
+            <input id="categoryColorInput" type="color" value="#58a6ff">
+            <div class="color-field__meta">
+              <strong id="categoryColorValue">#58A6FF</strong>
+              <span>Используется в бюджете, лимитах и аналитике</span>
+            </div>
+          </div>
+        </div>
+
+        <label class="field">
+          <span class="field__label">Лимит</span>
+          <input id="categoryLimitInput" type="number" step="0.01" min="0" placeholder="0 = без лимита">
+        </label>
+
+        <div class="auth-card__actions">
+          <button class="btn btn--primary btn--block" type="submit">Сохранить категорию</button>
+          <button class="btn btn--ghost btn--block is-hidden" id="deleteCategoryBtn" type="button">Удалить категорию</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="templateModal" aria-hidden="true">
+    <div class="modal__backdrop" data-close-modal="templateModal"></div>
+    <div class="modal__dialog glass-card modal__dialog--sm">
+      <button class="modal__close" type="button" data-close-modal="templateModal" aria-label="Закрыть">×</button>
+      <div class="modal__head">
+        <p class="eyebrow">Шаблон</p>
+        <h3 id="templateModalTitle">Быстрый шаблон операции</h3>
+      </div>
+
+      <form id="templateForm" class="stack-form" novalidate>
+        <input id="templateIdInput" type="hidden">
+        <input id="templateKindInput" type="hidden" value="template">
+
+        <label class="field">
+          <span class="field__label">Описание</span>
+          <textarea id="templateDescInput" rows="2" placeholder="Название шаблона"></textarea>
+        </label>
+
+        <label class="field">
+          <span class="field__label">Сумма</span>
+          <input id="templateAmountInput" type="number" step="0.01" min="0">
+        </label>
+
+        <label class="field" id="templateTypeField">
+          <span class="field__label">Тип</span>
+          <select id="templateTypeInput">
+            <option value="expense">Расход</option>
+            <option value="income">Доход</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field__label">Категория</span>
+          <input id="templateCategoryInput" type="hidden">
+          <button class="category-trigger category-trigger--form" id="templateCategoryTriggerBtn" type="button" aria-label="Выбрать категорию для шаблона">
+            <span class="category-trigger__swatch"></span>
+            <span class="category-trigger__label">Категория</span>
+          </button>
+        </label>
+
+        <label class="field" id="templateFlowKindField">
+          <span class="field__label">Подтип</span>
+          <select id="templateFlowKindInput">
+            <option value="standard">Обычный</option>
+            <option value="recurring">Регулярный платеж</option>
+            <option value="debt">Долг / кредит</option>
+          </select>
+        </label>
+
+        <div class="field field--note" id="templateTagsHintField">
+          <span class="field__label">Теги</span>
+          <div class="field__note" id="templateTagsHintText">После сохранения используйте кнопку «Теги» у карточки, чтобы быстро добавить или убрать метки.</div>
+        </div>
+
+        <button class="btn btn--primary btn--block" type="submit" id="templateSubmitBtn">Сохранить шаблон</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="goalModal" aria-hidden="true">
+    <div class="modal__backdrop" data-close-modal="goalModal"></div>
+    <div class="modal__dialog glass-card modal__dialog--sm">
+      <button class="modal__close" type="button" data-close-modal="goalModal" aria-label="Закрыть">×</button>
+      <div class="modal__head">
+        <p class="eyebrow">Финансовая цель</p>
+        <h3 id="goalModalTitle">Новая цель</h3>
+      </div>
+
+      <form id="goalForm" class="stack-form" novalidate>
+        <input id="goalIdInput" type="hidden">
+
+        <label class="field">
+          <span class="field__label">Название</span>
+          <input id="goalNameInput" type="text" maxlength="64" placeholder="Например, Отпуск">
+        </label>
+
+        <label class="field">
+          <span class="field__label">Нужная сумма</span>
+          <input id="goalTargetInput" type="number" step="0.01" min="0" placeholder="0">
+        </label>
+
+        <label class="field">
+          <span class="field__label">Режим расчета</span>
+          <select id="goalModeInput">
+            <option value="balance">От остатка на конец месяца</option>
+            <option value="saved">Ручная накопленная сумма</option>
+            <option value="tag">По транзакциям с тегом</option>
+          </select>
+        </label>
+
+        <label class="field" id="goalSavedField">
+          <span class="field__label">Уже отложено</span>
+          <input id="goalSavedInput" type="number" step="0.01" min="0" placeholder="0">
+        </label>
+
+        <label class="field is-hidden" id="goalTagField">
+          <span class="field__label">Тег для накопления</span>
+          <input id="goalTagInput" type="text" placeholder="#ноутбук2026">
+        </label>
+
+        <div class="field">
+          <span class="field__label">Цвет</span>
+          <div class="color-field">
+            <input id="goalColorInput" type="color" value="#58a6ff">
+            <div class="color-field__meta">
+              <strong id="goalColorValue">#58A6FF</strong>
+              <span>Используется в карточке цели и прогресс-баре</span>
+            </div>
+          </div>
+        </div>
+
+        <label class="field">
+          <span class="field__label">Заметка</span>
+          <textarea id="goalNoteInput" rows="2" placeholder="Краткий контекст или напоминание"></textarea>
+        </label>
+
+        <div class="auth-card__actions">
+          <button class="btn btn--primary btn--block" type="submit">Сохранить цель</button>
+          <button class="btn btn--ghost btn--block is-hidden" id="deleteGoalBtn" type="button">Удалить цель</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="tagModal" aria-hidden="true">
+    <div class="modal__backdrop" data-close-modal="tagModal"></div>
+    <div class="modal__dialog glass-card modal__dialog--sm">
+      <button class="modal__close" type="button" data-close-modal="tagModal" aria-label="Закрыть">×</button>
+      <div class="modal__head">
+        <p class="eyebrow">Тег</p>
+        <h3 id="tagModalTitle">Новый тег</h3>
+      </div>
+
+      <form id="tagForm" class="stack-form" novalidate>
+        <input id="tagIdInput" type="hidden">
+
+        <label class="field">
+          <span class="field__label">Название</span>
+          <input id="tagNameInput" type="text" maxlength="32" placeholder="#отпуск2026">
+        </label>
+
+        <div class="field">
+          <span class="field__label">Цвет</span>
+          <div class="color-field">
+            <input id="tagColorInput" type="color" value="#58a6ff">
+            <div class="color-field__meta">
+              <strong id="tagColorValue">#58A6FF</strong>
+              <span>Используется для фишек тега и карточек аналитики</span>
+            </div>
+          </div>
+        </div>
+
+        <label class="field">
+          <span class="field__label">Описание</span>
+          <textarea id="tagNoteInput" rows="2" placeholder="Кратко: для каких операций нужен этот тег"></textarea>
+        </label>
+
+        <div class="auth-card__actions">
+          <button class="btn btn--primary btn--block" type="submit">Сохранить тег</button>
+          <button class="btn btn--ghost btn--block is-hidden" id="deleteTagBtn" type="button">Удалить тег</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="transactionTagsModal" aria-hidden="true">
+    <div class="modal__backdrop" data-close-modal="transactionTagsModal"></div>
+    <div class="modal__dialog glass-card modal__dialog--sm">
+      <button class="modal__close" type="button" data-close-modal="transactionTagsModal" aria-label="Закрыть">×</button>
+      <div class="modal__head">
+        <p class="eyebrow">Теги операции</p>
+        <h3 id="transactionTagsModalTitle">Настройка тегов</h3>
+        <p class="modal__subtext" id="transactionTagsModalSubtext">Теги помогают искать операции, собирать события и строить отдельную аналитику.</p>
+      </div>
+
+      <form id="transactionTagsForm" class="stack-form" novalidate>
+        <input id="transactionTagsIdInput" type="hidden">
+        <input id="transactionTagsTargetKindInput" type="hidden" value="transaction">
+
+        <label class="field">
+          <span class="field__label">Теги</span>
+          <input id="transactionTagsInput" type="text" placeholder="#семья, #отпуск2026">
+        </label>
+
+        <div class="field">
+          <span class="field__label">Быстрый выбор</span>
+          <div class="tag-chip-cloud" id="transactionTagsSuggestions"></div>
+        </div>
+
+        <button class="btn btn--primary btn--block" type="submit">Сохранить теги</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal" id="pickerModal" aria-hidden="true">
+    <div class="modal__backdrop" data-close-modal="pickerModal"></div>
+    <div class="modal__dialog glass-card modal__dialog--sm">
+      <button class="modal__close" type="button" data-close-modal="pickerModal" aria-label="Закрыть">×</button>
+      <div class="modal__head">
+        <p class="eyebrow">Выбор</p>
+        <h3 id="pickerTitle">Выберите элементы</h3>
+        <p class="modal__subtext" id="pickerCount">Ничего не выбрано</p>
+      </div>
+      <div class="picker-list" id="pickerList"></div>
+      <button class="btn btn--primary btn--block" id="pickerApplyBtn" type="button">Добавить в бюджет</button>
+    </div>
+  </div>
+
+  <template id="transactionFormTemplate">
+    <form id="transactionForm" novalidate>
+      <div id="typeSwitch">
+        <label><input type="radio" name="transactionType" value="expense" checked><span>Расход</span></label>
+        <label><input type="radio" name="transactionType" value="income"><span>Доход</span></label>
+      </div>
+      <input id="amountInput" type="number">
+      <input id="categoryInput" type="hidden">
+      <select id="flowKindInput">
+        <option value="standard">Обычный</option>
+        <option value="recurring">Регулярный платеж</option>
+        <option value="debt">Долг / кредит</option>
+      </select>
+      <input id="tagsInput" type="text" placeholder="#покупка, #семья">
+      <input id="dateInput" type="date">
+      <textarea id="descriptionInput" rows="2"></textarea>
+    </form>
+  </template>
+  <div id="transactionFormMount" hidden aria-hidden="true"></div>
+
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
 </body>
 </html>
+
