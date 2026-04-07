@@ -1,0 +1,16 @@
+output/
+.playwright-mcp/
+node_modules/
+
+privat_исходники для сверки/
+budget_bonaqu_backup_*.json
+текущий код бюджета.txt
+
+_serve_out.txt
+_serve_err.txt
+_*.py
+_*.js
+_*.txt
+
+Thumbs.db
+.DS_Store

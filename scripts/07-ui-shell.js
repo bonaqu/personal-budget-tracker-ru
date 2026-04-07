@@ -1,0 +1,963 @@
+Object.assign(UI, {
+  scheduleChartResize() {
+    cancelAnimationFrame(this.chartResizeFrame);
+    const appShell = Utils.$("appShell");
+    const appVisible = appShell && !appShell.classList.contains("is-hidden");
+    const needsAnalyticsPass = Store.activeTab === "analyticsTab";
+    const needsOverviewChartPass = this.isOverviewChartVisible();
+    if (!appVisible || (!needsAnalyticsPass && !needsOverviewChartPass)) {
+      return;
+    }
+    this.chartResizeFrame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // Графики живут внутри адаптивных карточек, поэтому после смены сайдбара,
+        // вкладки или ресайза принудительно даем им пересчитать реальные размеры контейнера.
+        const chartsToResize = [];
+        if (needsAnalyticsPass) {
+          chartsToResize.push(this.charts.flow, this.charts.category);
+        }
+        if (needsOverviewChartPass && this.charts.monthBalance) {
+          chartsToResize.push(this.charts.monthBalance);
+        }
+        chartsToResize.filter(Boolean).forEach((chart) => {
+          try {
+            if (chart.canvas && chart.canvas.offsetParent === null) {
+              return;
+            }
+            this.resizeChartIfNeeded(chart);
+          } catch (error) {
+            Diagnostics.report("chart:resize-failed", { message: error?.message || String(error) }, "warning");
+          }
+        });
+        if (needsAnalyticsPass) {
+          this.syncPaymentCalendarLayout();
+          this.syncAnalyticsPairLayouts();
+        }
+      });
+    });
+  },
+
+  resizeChartIfNeeded(chart, { force = false } = {}) {
+    if (!chart?.canvas) {
+      return;
+    }
+    const host = chart.canvas.parentElement || chart.canvas;
+    const width = Math.round(host.clientWidth || chart.canvas.clientWidth || 0);
+    const height = Math.round(host.clientHeight || chart.canvas.clientHeight || 0);
+    if (!width || !height) {
+      return;
+    }
+    const nextKey = `${width}x${height}`;
+    const prevKey = this.chartSizeCache.get(chart);
+    if (!force && prevKey === nextKey) {
+      return;
+    }
+    chart.resize();
+    this.chartSizeCache.set(chart, nextKey);
+  },
+
+  isAnalyticsCompactLayout() {
+    return typeof window !== "undefined" && window.matchMedia("(max-width: 1240px)").matches;
+  },
+
+  syncPaymentCalendarLayout(root = Utils.$("paymentCalendar")) {
+    if (!root?.classList?.contains("payment-calendar--v2")) {
+      return;
+    }
+    const rail = root.querySelector(".payment-calendar-v2__rail");
+    const overview = root.querySelector(".payment-calendar-v2__overview");
+    const board = root.querySelector(".payment-calendar-v2__board");
+    const detail = root.querySelector(".payment-calendar-v2__detail");
+    const summary = root.querySelector(".payment-calendar-v2__summary");
+    const events = root.querySelector(".payment-calendar-v2__events");
+    const emptyState = !events ? detail?.querySelector(".empty-state") : null;
+    if (!rail || !overview || !board || !detail || !summary) {
+      return;
+    }
+
+    if (this.isAnalyticsCompactLayout()) {
+      summary.style.height = "";
+      summary.style.maxHeight = "";
+      detail.style.height = "";
+      detail.style.maxHeight = "";
+      if (events) {
+        events.style.height = "";
+        events.style.maxHeight = "";
+      }
+      if (emptyState) {
+        emptyState.style.height = "";
+        emptyState.style.minHeight = "";
+      }
+      return;
+    }
+
+    const railHeight = rail.getBoundingClientRect().height;
+    const overviewHeight = overview.getBoundingClientRect().height;
+    const boardHeight = board.getBoundingClientRect().height;
+    if (!railHeight || !overviewHeight || !boardHeight) {
+      return;
+    }
+
+    const detailGap = parseFloat(window.getComputedStyle(detail).gap) || 0;
+    const syncedSummaryHeight = overviewHeight;
+    const syncedEventsHeight = boardHeight;
+    const syncedDetailHeight = syncedSummaryHeight + syncedEventsHeight + detailGap;
+    this.setSyncedHeight(summary, syncedSummaryHeight);
+    this.setSyncedHeight(detail, syncedDetailHeight);
+
+    if (events) {
+      this.setSyncedHeight(events, syncedEventsHeight);
+    } else if (emptyState) {
+      this.setSyncedHeight(emptyState, syncedEventsHeight);
+    }
+  },
+
+  clearPanelHeightSync(...elements) {
+    elements.filter(Boolean).forEach((element) => {
+      element.style.height = "";
+      element.style.maxHeight = "";
+      element.style.minHeight = "";
+      delete element.dataset.syncedHeight;
+    });
+  },
+
+  setSyncedHeight(element, height) {
+    if (!element || !height) {
+      return;
+    }
+    const value = `${height.toFixed(2)}px`;
+    if (element.dataset.syncedHeight === value) {
+      return;
+    }
+    element.style.height = value;
+    element.style.maxHeight = value;
+    element.style.minHeight = value;
+    element.dataset.syncedHeight = value;
+  },
+
+  clearAnalyticsLayoutSync() {
+    if (Store.activeTab !== "analyticsTab") {
+      return;
+    }
+    this.clearPanelHeightSync(
+      Utils.$("paymentCalendar")?.querySelector(".payment-calendar-v2__summary"),
+      Utils.$("paymentCalendar")?.querySelector(".payment-calendar-v2__detail"),
+      Utils.$("paymentCalendar")?.querySelector(".payment-calendar-v2__events")
+    );
+    const analyticsGrid = document.querySelector(".analytics-grid");
+    this.clearPanelHeightSync(
+      analyticsGrid?.querySelector(".analytics-panel--cashflow"),
+      analyticsGrid?.querySelector(".analytics-panel--insights"),
+      analyticsGrid?.querySelector(".analytics-panel--cashflow #cashflowWorkspace") || analyticsGrid?.querySelector(".analytics-panel--cashflow .chart-wrap--lg"),
+      analyticsGrid?.querySelector(".analytics-panel--insights .insight-grid"),
+      analyticsGrid?.querySelector(".analytics-panel--breakdown"),
+      analyticsGrid?.querySelector(".analytics-panel--heatmap"),
+      analyticsGrid?.querySelector(".analytics-panel--breakdown .analytics-breakdown"),
+      analyticsGrid?.querySelector(".analytics-panel--heatmap #heatmapWrap")
+    );
+  },
+
+  syncActiveTabLayout() {
+    if (Store.activeTab === "analyticsTab") {
+      this.syncAnalyticsPairLayouts();
+      this.syncPaymentCalendarLayout();
+    }
+    if (Store.activeTab === "settingsTab") {
+      this.syncSettingsLayout();
+    }
+  },
+
+  syncPanelPairHeights({
+    leftPanel,
+    rightPanel,
+    leftContent,
+    rightContent
+  }) {
+    if (!leftPanel || !rightPanel || !leftContent || !rightContent) {
+      return;
+    }
+
+    this.clearPanelHeightSync(leftPanel, rightPanel, leftContent, rightContent);
+
+    const leftPanelHeight = leftPanel.getBoundingClientRect().height;
+    const rightPanelHeight = rightPanel.getBoundingClientRect().height;
+    const leftContentHeight = leftContent.getBoundingClientRect().height;
+    const rightContentHeight = rightContent.getBoundingClientRect().height;
+
+    if (!leftPanelHeight || !rightPanelHeight || !leftContentHeight || !rightContentHeight) {
+      return;
+    }
+
+    const targetPanelHeight = Math.max(leftPanelHeight, rightPanelHeight);
+    const leftChrome = leftPanelHeight - leftContentHeight;
+    const rightChrome = rightPanelHeight - rightContentHeight;
+    const syncedLeftContentHeight = Math.max(0, targetPanelHeight - leftChrome);
+    const syncedRightContentHeight = Math.max(0, targetPanelHeight - rightChrome);
+
+    this.setSyncedHeight(leftPanel, targetPanelHeight);
+    this.setSyncedHeight(rightPanel, targetPanelHeight);
+    this.setSyncedHeight(leftContent, syncedLeftContentHeight);
+    this.setSyncedHeight(rightContent, syncedRightContentHeight);
+  },
+
+  syncAnalyticsPairLayouts() {
+    const analyticsGrid = document.querySelector(".analytics-grid");
+    const cashflowPanel = analyticsGrid?.querySelector(".analytics-panel--cashflow");
+    const insightsPanel = analyticsGrid?.querySelector(".analytics-panel--insights");
+    const cashflowContent = cashflowPanel?.querySelector("#cashflowWorkspace") || cashflowPanel?.querySelector(".chart-wrap--lg");
+    const insightsContent = insightsPanel?.querySelector(".insight-grid");
+    const breakdownPanel = analyticsGrid?.querySelector(".analytics-panel--breakdown");
+    const heatmapPanel = analyticsGrid?.querySelector(".analytics-panel--heatmap");
+    const breakdownContent = breakdownPanel?.querySelector(".analytics-breakdown");
+    const heatmapContent = heatmapPanel?.querySelector("#heatmapWrap");
+
+    if (!cashflowPanel || !insightsPanel || !cashflowContent || !insightsContent || !breakdownPanel || !heatmapPanel || !breakdownContent || !heatmapContent) {
+      return;
+    }
+
+    if (this.isAnalyticsCompactLayout()) {
+      this.clearPanelHeightSync(
+        cashflowPanel,
+        insightsPanel,
+        cashflowContent,
+        insightsContent,
+        breakdownPanel,
+        heatmapPanel,
+        breakdownContent,
+        heatmapContent
+      );
+      return;
+    }
+
+    this.syncPanelPairHeights({
+      leftPanel: cashflowPanel,
+      rightPanel: insightsPanel,
+      leftContent: cashflowContent,
+      rightContent: insightsContent
+    });
+
+    this.syncPanelPairHeights({
+      leftPanel: breakdownPanel,
+      rightPanel: heatmapPanel,
+      leftContent: breakdownContent,
+      rightContent: heatmapContent
+    });
+  },
+
+  runPanelTransition(root, renderFn) {
+    if (typeof renderFn !== "function") {
+      return;
+    }
+    if (!root?.classList || this.prefersReducedMotion()) {
+      renderFn();
+      return;
+    }
+    root.classList.add("is-refreshing");
+    renderFn();
+    requestAnimationFrame(() => {
+      root.classList.remove("is-refreshing");
+    });
+  },
+
+  setupAutoResize() {
+    let resizeFrame = 0;
+    let resizeTimer = 0;
+    let resizeSettledTimer = 0;
+
+    document.addEventListener("focusin", (event) => {
+      const textarea = event.target.closest("textarea[data-compact='true']");
+      if (!textarea) {
+        return;
+      }
+      const fullText = textarea.dataset.fulltext || "";
+      textarea.dataset.editing = "1";
+      textarea.classList.add("is-editing");
+      textarea.value = fullText;
+      textarea.rows = 1;
+      this.updateCompactTextareaLayout(textarea);
+    });
+
+    document.addEventListener("focusout", (event) => {
+      const textarea = event.target.closest("textarea[data-compact='true']");
+      if (!textarea) {
+        return;
+      }
+      textarea.dataset.fulltext = textarea.value;
+      if (textarea.dataset.journalField) {
+        App.handleJournalField(textarea);
+      }
+      if (textarea.dataset.settingField) {
+        App.handleSettingsField(textarea);
+      }
+      this.collapseCompactTextarea(textarea);
+    });
+
+    document.addEventListener("input", (event) => {
+      if (event.target instanceof HTMLInputElement && event.target.closest(".auth-field__control")) {
+        UI.syncAuthFieldState(event.target);
+        UI.clearAuthFieldError(event.target);
+        UI.clearAuthStatus(UI.getAuthSourceForElement(event.target));
+      }
+
+      if (event.target.tagName !== "TEXTAREA") {
+        return;
+      }
+      const textarea = event.target;
+      if (textarea.dataset.compact === "true") {
+        textarea.dataset.fulltext = textarea.value;
+        if (textarea.dataset.editing === "1") {
+          this.updateCompactTextareaLayout(textarea);
+        }
+        return;
+      }
+      textarea.style.height = "auto";
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    });
+
+    this.refreshCompactTextareas();
+    document.querySelectorAll("textarea:not([data-compact='true'])").forEach((textarea) => {
+      textarea.style.height = "auto";
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    });
+
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimer);
+      clearTimeout(resizeSettledTimer);
+      cancelAnimationFrame(resizeFrame);
+      document.body.classList.add("is-window-resizing");
+      resizeFrame = requestAnimationFrame(() => {
+        this.clearAnalyticsLayoutSync();
+        if (Store.activeTab === "settingsTab") {
+          this.syncSettingsLayout();
+        }
+        resizeTimer = window.setTimeout(() => {
+          if (["overviewTab", "monthsTab", "settingsTab"].includes(Store.activeTab)) {
+            this.refreshCompactTextareas();
+          }
+          this.syncActiveTabLayout();
+          if (this.shouldRunChartResize()) {
+            this.scheduleChartResize();
+          }
+        }, 36);
+        resizeSettledTimer = window.setTimeout(() => {
+          document.body.classList.remove("is-window-resizing");
+        }, 160);
+      });
+    });
+  },
+
+  updatePaymentCalendarSelection(root = Utils.$("paymentCalendar"), activeDate = this.calendarSelectedDate) {
+    if (!root?.classList?.contains("payment-calendar--v2")) {
+      return;
+    }
+    root.querySelectorAll(".payment-calendar-v2__day[data-date]").forEach((button) => {
+      button.classList.toggle("is-selected", button.dataset.date === activeDate);
+    });
+  },
+
+  buildPaymentCalendarDetail(calendar, activeDate) {
+    const details = Utils.createElement("div", "payment-calendar-v2__detail");
+    const selectedDay = calendar.days.find((item) => `${Store.viewMonth}-${String(item.day).padStart(2, "0")}` === activeDate) || calendar.days[0];
+    const detailDate = new Date(`${activeDate}T00:00:00`);
+    const detailLabel = new Intl.DateTimeFormat("ru-RU", {
+      weekday: "long",
+      day: "numeric",
+      month: "long"
+    }).format(detailDate).replace(/^./, (char) => char.toUpperCase());
+
+    const summary = Utils.createElement("div", "payment-calendar-v2__summary");
+    const detailsHead = Utils.createElement("div", "payment-calendar-v2__detail-head");
+    const detailCopy = Utils.createElement("div", "payment-calendar-v2__detail-copy");
+    detailCopy.append(
+      Utils.createElement("span", "payment-calendar-v2__detail-date", detailLabel),
+      Utils.createElement("strong", "", "Платежи и движение денег")
+    );
+    const detailCount = Utils.createElement(
+      "span",
+      "payment-calendar-v2__detail-count",
+      selectedDay?.items?.length ? `${selectedDay.items.length} операций` : "Без операций"
+    );
+    detailsHead.append(detailCopy, detailCount);
+
+    const totals = Utils.createElement("div", "payment-calendar-v2__totals");
+    const incomeMetric = Utils.createElement("div", "payment-calendar-v2__total");
+    incomeMetric.append(
+      Utils.createElement("span", "", "Доходы"),
+      Utils.createElement("strong", "amount-positive", Utils.formatMoney(selectedDay?.income || 0))
+    );
+    const expenseMetric = Utils.createElement("div", "payment-calendar-v2__total");
+    expenseMetric.append(
+      Utils.createElement("span", "", "Расходы"),
+      Utils.createElement("strong", "amount-negative", Utils.formatMoney(selectedDay?.expense || 0))
+    );
+    const netMetric = Utils.createElement("div", "payment-calendar-v2__total");
+    netMetric.append(
+      Utils.createElement("span", "", "Чистый поток"),
+      Utils.createElement(
+        "strong",
+        (selectedDay?.income || 0) - (selectedDay?.expense || 0) >= 0 ? "amount-positive" : "amount-negative",
+        Utils.formatMoney((selectedDay?.income || 0) - (selectedDay?.expense || 0))
+      )
+    );
+    totals.append(incomeMetric, expenseMetric, netMetric);
+    summary.append(detailsHead, totals);
+    details.appendChild(summary);
+
+    if (!selectedDay?.items?.length) {
+      details.appendChild(Utils.createElement("div", "empty-state empty-state--compact", "На выбранный день операций нет."));
+      return details;
+    }
+
+    const list = Utils.createElement("div", "payment-calendar-v2__events");
+    selectedDay.items
+      .slice()
+      .sort((a, b) => Number(a.position) - Number(b.position))
+      .forEach((item) => {
+        const category = Store.getCategory(item.categoryId);
+        const row = Utils.createElement("div", "payment-calendar-v2__event");
+        const marker = Utils.createElement("span", "payment-calendar-v2__event-marker");
+        marker.style.background = category?.color || (item.type === "income" ? "var(--income)" : "var(--expense)");
+        const body = Utils.createElement("div", "payment-calendar-v2__event-body");
+        const fallbackLabel = item.type === "income" ? "Доход" : "Расход";
+        const description = Utils.createElement("span", "payment-calendar-v2__event-desc", item.description || fallbackLabel);
+        description.title = item.description || fallbackLabel;
+        const meta = Utils.createElement("div", "payment-calendar-v2__event-meta");
+        meta.append(
+          Utils.createElement("span", "payment-calendar-v2__event-pill", fallbackLabel),
+          Utils.createElement("span", "", category?.name || fallbackLabel)
+        );
+        body.append(description, meta);
+        const side = Utils.createElement("div", "payment-calendar-v2__event-side");
+        const amount = Utils.createElement(
+          "strong",
+          `payment-calendar-v2__event-amount ${item.type === "income" ? "amount-positive" : "amount-negative"}`.trim(),
+          Utils.formatMoney(item.amount)
+        );
+        const jumpButton = Utils.createElement("button", "icon-btn icon-btn--tiny payment-calendar-v2__event-jump", "↗");
+        jumpButton.type = "button";
+        jumpButton.title = "Открыть эту операцию в бюджете";
+        jumpButton.setAttribute("aria-label", "Открыть эту операцию в бюджете");
+        jumpButton.dataset.action = "open-payment-transaction";
+        jumpButton.dataset.id = item.id;
+        side.append(amount, jumpButton);
+        row.append(marker, body, side);
+        list.appendChild(row);
+      });
+    details.appendChild(list);
+    return details;
+  },
+
+  renderPaymentCalendarDetail(root = Utils.$("paymentCalendar"), calendar = Store.paymentCalendar(Store.viewMonth), activeDate = this.calendarSelectedDate) {
+    if (!root?.classList?.contains("payment-calendar--v2")) {
+      return;
+    }
+    const previousScrollY = window.scrollY;
+    const currentDetail = root.querySelector(".payment-calendar-v2__detail");
+    const nextDetail = this.buildPaymentCalendarDetail(calendar, activeDate);
+    const currentSummary = currentDetail?.querySelector(".payment-calendar-v2__summary");
+    const currentEvents = currentDetail?.querySelector(".payment-calendar-v2__events");
+    const persistedSummaryHeight = currentSummary?.style.height || "";
+    const persistedSummaryMinHeight = currentSummary?.style.minHeight || "";
+    const persistedSummaryMaxHeight = currentSummary?.style.maxHeight || "";
+    const persistedDetailHeight = currentDetail?.style.height || "";
+    const persistedDetailMinHeight = currentDetail?.style.minHeight || "";
+    const persistedDetailMaxHeight = currentDetail?.style.maxHeight || "";
+    const persistedEventsHeight = currentEvents?.style.height || "";
+    const persistedEventsMinHeight = currentEvents?.style.minHeight || "";
+    const persistedEventsMaxHeight = currentEvents?.style.maxHeight || "";
+    if (currentDetail && nextDetail) {
+      currentDetail.replaceChildren(...Array.from(nextDetail.childNodes));
+    } else if (nextDetail) {
+      root.querySelector(".payment-calendar-v2__shell")?.appendChild(nextDetail);
+    }
+    const nextSummary = root.querySelector(".payment-calendar-v2__summary");
+    const nextEvents = root.querySelector(".payment-calendar-v2__events");
+    const nextDetailRoot = root.querySelector(".payment-calendar-v2__detail");
+    if (nextSummary && persistedSummaryHeight) {
+      nextSummary.style.height = persistedSummaryHeight;
+      nextSummary.style.minHeight = persistedSummaryMinHeight || persistedSummaryHeight;
+      nextSummary.style.maxHeight = persistedSummaryMaxHeight || persistedSummaryHeight;
+    }
+    if (nextDetailRoot && persistedDetailHeight) {
+      nextDetailRoot.style.height = persistedDetailHeight;
+      nextDetailRoot.style.minHeight = persistedDetailMinHeight || persistedDetailHeight;
+      nextDetailRoot.style.maxHeight = persistedDetailMaxHeight || persistedDetailHeight;
+    }
+    if (nextEvents && persistedEventsHeight) {
+      nextEvents.style.height = persistedEventsHeight;
+      nextEvents.style.minHeight = persistedEventsMinHeight || persistedEventsHeight;
+      nextEvents.style.maxHeight = persistedEventsMaxHeight || persistedEventsHeight;
+    }
+    requestAnimationFrame(() => {
+      this.syncPaymentCalendarLayout(root);
+      if (Math.abs(window.scrollY - previousScrollY) > 1) {
+        window.scrollTo({ top: previousScrollY, left: 0, behavior: "auto" });
+      }
+    });
+  },
+
+  collapseCompactTextarea(textarea) {
+    const fullText = textarea.dataset.fulltext || "";
+    textarea.dataset.editing = "0";
+    textarea.classList.remove("is-editing");
+    textarea.classList.remove("is-multiline");
+    textarea.rows = 1;
+    textarea.value = Utils.truncateSingleLineToFit(fullText, textarea, Number(textarea.dataset.compactLimit || 72));
+    textarea.title = fullText;
+    textarea.style.height = "";
+  },
+
+  updateCompactTextareaLayout(textarea) {
+    textarea.classList.add("is-editing");
+    textarea.classList.remove("is-multiline");
+    textarea.rows = 1;
+    textarea.style.height = "";
+    const singleLineHeight = 44;
+    const needsMultiline = textarea.scrollHeight > singleLineHeight + 2;
+    if (needsMultiline) {
+      textarea.classList.add("is-multiline");
+      textarea.rows = Number(textarea.dataset.expandedRows || 3);
+      textarea.style.height = "auto";
+      textarea.style.height = `${Math.max(textarea.scrollHeight, 86)}px`;
+    }
+  },
+
+  refreshCompactTextareas(root = document) {
+    root.querySelectorAll("textarea[data-compact='true']").forEach((textarea) => {
+      if (!textarea.dataset.fulltext) {
+        textarea.dataset.fulltext = textarea.value;
+      }
+      this.collapseCompactTextarea(textarea);
+    });
+  },
+
+  setCategoryTrigger(buttonId, categoryId, fallbackLabel = "Выберите категорию") {
+    const button = Utils.$(buttonId);
+    if (!button) {
+      return;
+    }
+    const category = Store.getCategory(categoryId);
+    const label = category?.name || fallbackLabel;
+    const color = category?.color || "#8b949e";
+    button.innerHTML = `
+      <span class="category-trigger__swatch" style="background:${color}"></span>
+      <span class="category-trigger__label">${Utils.escapeHtml(label)}</span>
+    `;
+    button.title = label;
+  },
+
+  renderCategoryColorValue() {
+    this.renderColorFieldValue("categoryColorInput", "categoryColorValue");
+  },
+
+  renderColorFieldValue(inputId, labelId) {
+    const input = Utils.$(inputId);
+    const label = Utils.$(labelId);
+    if (!input || !label) {
+      return;
+    }
+    const value = String(input.value || "#58a6ff");
+    label.textContent = value.toUpperCase();
+    label.style.color = value;
+    const field = input.closest(".color-field");
+    if (field) {
+      field.style.setProperty("--selected-color", value);
+    }
+  },
+
+  showApp() {
+    Utils.$("authScreen").classList.add("is-hidden");
+    Utils.$("appShell").classList.remove("is-hidden");
+  },
+
+  showStartupAuth() {
+    Utils.$("appShell").classList.add("is-hidden");
+    Utils.$("authScreen").classList.remove("is-hidden");
+    this.clearAuthStatus("startup");
+    this.syncAllAuthFields();
+  },
+
+  finishBoot() {
+    if (typeof document === "undefined") {
+      return;
+    }
+    const body = document.body;
+    if (!body || body.classList.contains("app-ready")) {
+      return;
+    }
+    requestAnimationFrame(() => {
+      body.classList.remove("app-booting");
+      body.classList.add("app-ready");
+    });
+  },
+
+  openModal(modalId) {
+    const modal = Utils.$(modalId);
+    if (!modal) {
+      return;
+    }
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && !modal.contains(active)) {
+      this.modalFocusRestore.set(modalId, active);
+    }
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    modal.setAttribute("aria-modal", "true");
+    this.syncAllAuthFields();
+    App.runAfterNextPaint(() => this.focusModalPrimary(modal), 3);
+  },
+
+  closeModal(modalId) {
+    const modal = Utils.$(modalId);
+    if (!modal) {
+      return;
+    }
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+    modal.removeAttribute("aria-modal");
+    if (modalId === "pickerModal") {
+      this.pickerState.kind = null;
+      this.pickerState.ids = new Set();
+      this.pickerState.context = null;
+    }
+    const restoreTarget = this.modalFocusRestore.get(modalId);
+    this.modalFocusRestore.delete(modalId);
+    if (restoreTarget instanceof HTMLElement && document.contains(restoreTarget)) {
+      App.runAfterNextPaint(() => {
+        try {
+          restoreTarget.focus({ preventScroll: true });
+        } catch {
+          restoreTarget.focus();
+        }
+      }, 2);
+    }
+  },
+
+  closeModals() {
+    ["authModal", "accountMenuModal", "transactionModal", "categoryModal", "templateModal", "goalModal", "tagModal", "transactionTagsModal", "pickerModal", "syncChoiceModal"]
+      .forEach((modalId) => this.closeModal(modalId));
+  },
+
+    closeSidebar() {
+      const shell = Utils.$("appShell");
+      if (!shell) {
+        return;
+      }
+    if (window.innerWidth <= 1180 && !shell.classList.contains("is-sidebar-collapsed")) {
+      this.applySidebarState(true);
+    }
+  },
+
+  mountTransactionForm(target = Utils.$("transactionFormMount")) {
+    if (!target) {
+      return null;
+    }
+    const template = Utils.$("transactionFormTemplate");
+    if (!template) {
+      return null;
+    }
+    const existing = target.querySelector("#transactionForm");
+    if (existing) {
+      return existing;
+    }
+    target.replaceChildren(template.content.cloneNode(true));
+    return target.querySelector("#transactionForm");
+  },
+
+  applyTheme() {
+    const theme = Store.data.profile.theme === "light" ? "light" : "dark";
+    const toggleIcon = Utils.$("themeToggleIcon");
+    const icon = theme === "dark" ? "◐" : "◑";
+    if (this.appliedTheme === theme && document.body.dataset.theme === theme && (!toggleIcon || toggleIcon.textContent === icon)) {
+      return;
+    }
+    if (document.body.dataset.theme !== theme) {
+      document.body.dataset.theme = theme;
+    }
+    if (toggleIcon && toggleIcon.textContent !== icon) {
+      toggleIcon.textContent = icon;
+    }
+    this.appliedTheme = theme;
+  },
+
+  applySidebarState(collapsed) {
+    const shell = Utils.$("appShell");
+    if (!shell) {
+      return;
+    }
+    shell.classList.toggle("is-sidebar-collapsed", Boolean(collapsed));
+    const icon = Utils.$("sidebarToggleIcon");
+    if (icon) {
+      icon.textContent = collapsed ? "→" : "←";
+    }
+    const toggle = Utils.$("sidebarToggleBtn");
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", String(!collapsed));
+    }
+    Storage.writeText(CONFIG.SIDEBAR_KEY, collapsed ? "1" : "0");
+    this.scheduleChartResize();
+    App.runAfterNextPaint(() => this.syncActiveTabLayout(), 2);
+  },
+
+  toggleSidebar() {
+    const shell = Utils.$("appShell");
+    if (!shell) {
+      return;
+    }
+    this.applySidebarState(!shell.classList.contains("is-sidebar-collapsed"));
+  },
+
+  toggleBudgetFilters(forceValue = null) {
+    App.setBudgetFiltersCollapsed(forceValue === null ? !this.budgetFiltersCollapsed : forceValue);
+    this.renderBudgetFilters();
+    this.scheduleChartResize();
+  },
+
+  renderSyncState() {
+    const dot = Utils.$("syncDot");
+    const title = Utils.$("syncTitle");
+    const subtitle = Utils.$("syncSubtitle");
+    dot.className = "sync-pill__dot";
+
+    if (!Auth.hasSession()) {
+      title.textContent = "Локальный режим";
+      subtitle.textContent = "Данные хранятся только в браузере";
+      return;
+    }
+    if (Auth.isLocalOnly()) {
+      title.textContent = "Локальная сессия";
+      subtitle.textContent = "Данные доступны только в этом браузере, без облачной синхронизации";
+      return;
+    }
+    if (Sync.status === "syncing") {
+      dot.classList.add("is-syncing");
+      title.textContent = `Аккаунт: ${Auth.getLogin()}`;
+      subtitle.textContent = "Идет синхронизация изменений";
+      return;
+    }
+    if (Sync.status === "offline") {
+      title.textContent = `Аккаунт: ${Auth.getLogin()}`;
+      subtitle.textContent = Sync.lastError
+        ? `${Utils.truncateSingleLine(Sync.lastError, 54)}. Изменения уйдут позже`
+        : "Оффлайн-очередь. Изменения уйдут позже";
+      return;
+    }
+    if (Sync.status === "error") {
+      dot.classList.add("is-error");
+      title.textContent = `Аккаунт: ${Auth.getLogin()}`;
+      subtitle.textContent = Sync.lastError
+        ? Utils.truncateSingleLine(Sync.lastError, 66)
+        : "Ошибка синхронизации. Локальные данные сохранены";
+      return;
+    }
+    dot.classList.add("is-synced");
+    title.textContent = `Аккаунт: ${Auth.getLogin()}`;
+    subtitle.textContent = Sync.lastSyncedAt ? `Синхронизировано ${Utils.timeSince(Sync.lastSyncedAt)}` : "Синхронизация активна";
+  },
+
+  renderHistoryState() {
+    const undoBtn = Utils.$("undoBtn");
+    const redoBtn = Utils.$("redoBtn");
+    if (undoBtn) {
+      undoBtn.disabled = !Store.canUndo();
+      undoBtn.setAttribute("aria-disabled", String(!Store.canUndo()));
+    }
+    if (redoBtn) {
+      redoBtn.disabled = !Store.canRedo();
+      redoBtn.setAttribute("aria-disabled", String(!Store.canRedo()));
+      }
+    },
+
+    togglePasswordVisibility(inputId, button) {
+      const input = Utils.$(inputId);
+      if (!(input instanceof HTMLInputElement) || !(button instanceof HTMLElement)) {
+        return;
+      }
+      const nextType = input.type === "password" ? "text" : "password";
+      input.type = nextType;
+      button.textContent = nextType === "password" ? "Показать" : "Скрыть";
+      button.setAttribute("aria-pressed", String(nextType === "text"));
+    },
+
+    syncAuthFieldState(input) {
+      if (!(input instanceof HTMLInputElement)) {
+        return;
+      }
+      const control = input.closest(".auth-field__control");
+      if (control instanceof HTMLElement) {
+        control.classList.toggle("is-filled", input.value.trim().length > 0);
+      }
+      if (input.closest(".password-field")) {
+        this.syncPasswordFieldState(input);
+      }
+    },
+
+    syncPasswordFieldState(input) {
+      if (!(input instanceof HTMLInputElement)) {
+        return;
+      }
+      const field = input.closest(".password-field");
+      if (!(field instanceof HTMLElement)) {
+        return;
+      }
+      const hasValue = input.value.trim().length > 0;
+      field.classList.toggle("password-field--active", hasValue);
+      const toggle = field.querySelector(".password-field__toggle");
+      if (toggle instanceof HTMLElement) {
+        toggle.setAttribute("aria-hidden", String(!hasValue));
+      }
+      if (!hasValue && input.type !== "password") {
+        input.type = "password";
+        if (toggle instanceof HTMLElement) {
+          toggle.textContent = "Показать";
+          toggle.setAttribute("aria-pressed", "false");
+        }
+      }
+    },
+
+    syncAllAuthFields() {
+      ["startupLogin", "startupPassword", "modalLogin", "modalPassword"].forEach((id) => {
+        const input = Utils.$(id);
+        if (input instanceof HTMLInputElement) {
+          this.syncAuthFieldState(input);
+        }
+      });
+    },
+
+    syncAllPasswordFields() {
+      this.syncAllAuthFields();
+    },
+
+    getAuthSourceForElement(element) {
+      const form = element?.closest?.("form");
+      return form?.id === "modalAuthForm" ? "modal" : "startup";
+    },
+
+    getAuthStatusNode(source = "startup") {
+      return Utils.$(source === "modal" ? "modalAuthStatus" : "startupAuthStatus");
+    },
+
+    getSettingsStatusNode(kind = "quick") {
+      return Utils.$(kind === "backup" ? "backupStatus" : "settingsQuickStatus");
+    },
+
+    setStatusNode(node, message = "", tone = "info") {
+      if (!(node instanceof HTMLElement)) {
+        return;
+      }
+      const text = String(message || "").trim();
+      node.dataset.tone = tone;
+      if (!text) {
+        node.textContent = "";
+        node.hidden = true;
+        return;
+      }
+      node.textContent = text;
+      node.hidden = false;
+    },
+
+    clearStatusNode(node) {
+      this.setStatusNode(node, "");
+    },
+
+    setAuthStatus(source = "startup", message = "", tone = "info") {
+      this.setStatusNode(this.getAuthStatusNode(source), message, tone);
+    },
+
+    clearAuthStatus(source = "startup") {
+      this.clearStatusNode(this.getAuthStatusNode(source));
+    },
+
+    setSettingsStatus(message = "", tone = "info") {
+      this.setStatusNode(this.getSettingsStatusNode("quick"), message, tone);
+    },
+
+    clearSettingsStatus() {
+      this.clearStatusNode(this.getSettingsStatusNode("quick"));
+    },
+
+    setBackupStatus(message = "", tone = "info") {
+      this.setStatusNode(this.getSettingsStatusNode("backup"), message, tone);
+    },
+
+    clearBackupStatus() {
+      this.clearStatusNode(this.getSettingsStatusNode("backup"));
+    },
+
+    setAuthButtonLoading(button, active, mode = "login") {
+      if (!(button instanceof HTMLElement)) {
+        return;
+      }
+      button.classList.toggle("is-loading", active);
+      button.disabled = active;
+      button.setAttribute("aria-busy", active ? "true" : "false");
+      const form = button.closest("form");
+      if (form instanceof HTMLElement) {
+        form.setAttribute("aria-busy", active ? "true" : "false");
+      }
+      button.textContent = active
+        ? (mode === "login" ? "Входим..." : "Создаем...")
+        : (mode === "login" ? "Войти" : "Создать аккаунт");
+    },
+
+    markAuthFieldInvalid(input) {
+      if (!(input instanceof HTMLInputElement)) {
+        return;
+      }
+      const control = input.closest(".auth-field__control");
+      if (control instanceof HTMLElement) {
+        control.classList.add("is-invalid");
+      }
+      input.setAttribute("aria-invalid", "true");
+    },
+
+    clearAuthFieldError(input) {
+      if (!(input instanceof HTMLInputElement)) {
+        return;
+      }
+      const control = input.closest(".auth-field__control");
+      if (control instanceof HTMLElement) {
+        control.classList.remove("is-invalid");
+      }
+      input.setAttribute("aria-invalid", "false");
+    },
+
+    shakeAuthCard(source = "startup") {
+      const root = source === "startup"
+        ? document.querySelector(".auth-shell-card")
+        : Utils.$("authModal")?.querySelector(".modal__dialog");
+      if (!(root instanceof HTMLElement) || typeof root.animate !== "function") {
+        return;
+      }
+      if (root.__authShakeAnimation) {
+        root.__authShakeAnimation.cancel();
+      }
+      root.__authShakeAnimation = root.animate(
+        [
+          { transform: "translateX(0)" },
+          { transform: "translateX(-4px)" },
+          { transform: "translateX(4px)" },
+          { transform: "translateX(-2px)" },
+          { transform: "translateX(0)" }
+        ],
+        {
+          duration: 320,
+          easing: "cubic-bezier(0.22, 1, 0.36, 1)"
+        }
+      );
+    },
+
+    renderTabs() {
+      document.querySelectorAll(".tab-panel").forEach((panel) => {
+        const isActive = panel.id === Store.activeTab;
+        panel.classList.toggle("is-active", isActive);
+        panel.hidden = !isActive;
+        panel.setAttribute("aria-hidden", String(!isActive));
+      });
+      document.querySelectorAll(".tabbar__btn").forEach((button) => {
+        const isActive = button.dataset.tabTarget === Store.activeTab;
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-pressed", String(isActive));
+      });
+    },
+});

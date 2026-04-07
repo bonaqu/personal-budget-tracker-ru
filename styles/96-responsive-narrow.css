@@ -1,0 +1,325 @@
+@media (max-width: 1100px) {
+  .app-shell:not(.is-sidebar-collapsed) {
+    grid-template-columns: 192px minmax(0, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  .app-shell:not(.is-sidebar-collapsed) .sidebar {
+    max-width: 192px !important;
+  }
+
+  .overview-layout,
+  .budget-workspace,
+  .analytics-grid,
+  .tags-layout,
+  .months-layout,
+  .settings-layout {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .budget-workspace {
+    grid-template-areas:
+      "main"
+      "side"
+      "journal" !important;
+  }
+
+  .budget-workspace__main,
+  .budget-workspace__side,
+  .budget-workspace__journal,
+  .month-detail__body,
+  .tag-detail__content,
+  .payment-calendar-v2__shell,
+  .analytics-breakdown {
+    grid-template-columns: 1fr !important;
+  }
+
+  .hero-strip__header-row,
+  .budget-filter-shell__head {
+    grid-template-columns: 1fr !important;
+    align-items: start !important;
+  }
+
+  .budget-filter-shell__head {
+    display: grid !important;
+    gap: 10px !important;
+  }
+
+  .budget-filter-shell__head > .btn {
+    justify-self: start !important;
+  }
+
+  .hero-strip__facts--budget,
+  .budget-side-panel,
+  .forecast-v3__metrics,
+  .forecast-v3__hero-side,
+  .settings-quick-stats,
+  .settings-category-stats,
+  .tag-detail-card__metrics,
+  .month-overview-stats,
+  .month-detail__hero {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .journal-section .entry-row:not(.entry-row--wishlist) {
+    grid-template-columns: 64px 104px minmax(0, 1fr) max-content !important;
+    grid-template-areas:
+      "day amount desc actions"
+      "category category category actions" !important;
+    gap: 8px !important;
+    padding: 9px 10px !important;
+    align-items: start !important;
+  }
+
+  .entry-row--wishlist {
+    grid-template-columns: minmax(0, 1fr) 96px max-content !important;
+    grid-template-areas: "desc amount actions" !important;
+    gap: 8px !important;
+    padding: 8px 10px !important;
+  }
+
+  .entry-field--actions {
+    min-width: 0 !important;
+  }
+
+  .journal-section .entry-row:not(.entry-row--wishlist) .entry-field--desc,
+  .journal-section .entry-row:not(.entry-row--wishlist) .entry-field--category {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .journal-section .entry-row:not(.entry-row--wishlist) .entry-actions {
+    grid-row: 1 / span 2 !important;
+    align-self: stretch !important;
+  }
+
+  .entry-actions__buttons {
+    gap: 6px !important;
+  }
+
+  .entry-actions__buttons .icon-btn--row {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 14px !important;
+  }
+
+  .month-overview-stats {
+    padding-right: var(--scrollbar-gap) !important;
+  }
+
+  .months-panel--table .month-table {
+    max-height: min(48vh, 420px) !important;
+    overflow-y: auto !important;
+  }
+
+  .month-table__row--compact {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "headline"
+      "totals"
+      "focus" !important;
+    padding: 10px 11px !important;
+    gap: 8px !important;
+    align-items: start !important;
+  }
+
+  .month-table__headline {
+    grid-area: headline !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .month-table__result {
+    width: 100% !important;
+  }
+
+  .month-table__totals {
+    grid-area: totals !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    align-content: start !important;
+  }
+
+  .month-table__focus {
+    grid-area: focus !important;
+    grid-template-columns: 1fr !important;
+    gap: 4px !important;
+    align-items: start !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-shell {
+    width: min(var(--container), calc(100% - 16px)) !important;
+    padding: 8px 0 18px !important;
+    gap: 0 !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  .sidebar {
+    position: fixed !important;
+    top: 8px !important;
+    bottom: 8px !important;
+    left: 8px !important;
+    margin: 0 !important;
+    z-index: 60 !important;
+  }
+
+  .app-shell.is-sidebar-collapsed .sidebar {
+    width: 56px !important;
+    max-width: 56px !important;
+    padding: 6px !important;
+  }
+
+  .app-shell.is-sidebar-collapsed .page-grid {
+    padding-left: 72px !important;
+  }
+
+  .app-shell.is-sidebar-collapsed .sidebar__card--brand .sidebar__row {
+    min-height: 40px !important;
+  }
+
+  .app-shell.is-sidebar-collapsed .sidebar__toggle,
+  .app-shell.is-sidebar-collapsed .sidebar__utility-btn,
+  .app-shell.is-sidebar-collapsed .sidebar__account-btn,
+  .app-shell.is-sidebar-collapsed .sync-pill,
+  .app-shell.is-sidebar-collapsed .sidebar-nav .tabbar__btn {
+    width: 40px !important;
+    min-width: 40px !important;
+    max-width: 40px !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    border-radius: 14px !important;
+  }
+
+  .app-shell:not(.is-sidebar-collapsed) .sidebar {
+    width: min(220px, calc(100vw - 16px)) !important;
+    max-width: min(220px, calc(100vw - 16px)) !important;
+    box-shadow: 0 24px 48px rgba(3, 6, 12, 0.36) !important;
+  }
+
+  .app-shell:not(.is-sidebar-collapsed) .page-grid {
+    padding-left: 0 !important;
+  }
+
+  .page-grid {
+    min-width: 0 !important;
+  }
+
+  .tab-panel > * + * {
+    margin-top: 12px !important;
+  }
+
+  .panel,
+  .glass-card,
+  .hero-strip--compact,
+  .budget-filter-shell,
+  .month-detail,
+  .tag-detail-card--hero {
+    padding: 10px 12px !important;
+  }
+
+  .hero-strip__facts--budget,
+  .budget-side-panel,
+  .forecast-v3__metrics,
+  .forecast-v3__hero-side,
+  .settings-quick-stats,
+  .settings-category-stats,
+  .tag-detail-card__metrics,
+  .month-overview-stats,
+  .month-detail__hero,
+  .month-table__totals,
+  .analytics-panel--insights .insight-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .months-panel--table .month-table {
+    max-height: min(42vh, 340px) !important;
+  }
+
+  .month-table__row--compact {
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "headline"
+      "totals"
+      "focus" !important;
+  }
+
+  .month-table__meta {
+    gap: 3px 8px !important;
+    font-size: 0.75rem !important;
+  }
+
+  .month-table__focus-value,
+  .month-table__title strong,
+  .month-detail__hero-card strong {
+    font-size: 0.9rem !important;
+  }
+
+  .journal-section {
+    gap: 10px !important;
+  }
+
+  .journal-section .entry-row:not(.entry-row--wishlist) {
+    grid-template-columns: minmax(64px, 74px) minmax(0, 1fr) max-content !important;
+    grid-template-areas:
+      "day amount actions"
+      "desc desc desc"
+      "category category category" !important;
+    gap: 7px !important;
+    padding: 8px 9px !important;
+  }
+
+  .entry-row--wishlist {
+    grid-template-columns: minmax(0, 1fr) 90px max-content !important;
+    gap: 7px !important;
+    padding: 8px 9px !important;
+  }
+
+  .entry-field {
+    gap: 5px !important;
+  }
+
+  .entry-field__label {
+    font-size: 0.64rem !important;
+    padding-inline: 8px 0 !important;
+  }
+
+  .entry-actions__buttons .icon-btn--row {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .budget-search__input-wrap input {
+    padding-inline-start: 36px !important;
+  }
+
+  .payment-calendar-v2__rail,
+  .payment-calendar-v2__detail,
+  .payment-calendar-v2__summary,
+  .payment-calendar-v2__events,
+  .analytics-advanced__body,
+  .tag-detail-list--scroll,
+  .settings-quick-list {
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+}
+
+@media (max-width: 980px) {
+  .journal-section .entry-row:not(.entry-row--wishlist) {
+    grid-template-columns: 64px minmax(96px, 118px) max-content !important;
+    grid-template-areas:
+      "day amount actions"
+      "desc desc desc"
+      "category category category" !important;
+  }
+
+  .journal-section .entry-row:not(.entry-row--wishlist) .entry-actions {
+    grid-row: auto !important;
+    align-self: start !important;
+  }
+}
+
