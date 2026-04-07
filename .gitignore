@@ -1,6 +1,29 @@
-# wrangler files
-.wrangler
+# wrangler / secrets
+.wrangler/
 .dev.vars*
 !.dev.vars.example
 .env*
 !.env.example
+
+# local worker drafts
+worker.js
+worker_new.js
+
+# local outputs and service files
+output/
+.playwright-mcp/
+node_modules/
+_serve_out.txt
+_serve_err.txt
+_*.py
+_*.js
+_*.txt
+
+# local backups and reference sources
+budget_bonaqu_backup_*.json
+текущий код бюджета.txt
+privat_исходники для сверки/
+
+# system junk
+Thumbs.db
+.DS_Store
