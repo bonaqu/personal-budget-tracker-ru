@@ -121,7 +121,7 @@
 
 **PROPRIETARY**
 
-Copyright © 2025  
+Copyright © 2025 — 2026
 **Евгений**  
 GitHub: https://github.com/bonaqu  
 
