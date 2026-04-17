@@ -207,7 +207,6 @@ Object.assign(UI, {
     this.syncBudgetSidePager?.();
     this.syncBudgetWorkspaceLayout();
     this.scheduleChartResize?.();
-    this.repaintBudgetSurfaces();
     document
       .querySelectorAll(
         "#overviewTab .hero-strip, #overviewTab .budget-workspace, #overviewTab .budget-workspace__main, #overviewTab .budget-workspace__side, #overviewTab .budget-workspace__journal, #overviewTab .journal-layout--budget"
@@ -215,23 +214,6 @@ Object.assign(UI, {
       .forEach((element) => {
         void element.getBoundingClientRect();
       });
-  },
-
-  repaintBudgetSurfaces() {
-    if (Store.activeTab !== "overviewTab") {
-      return;
-    }
-    const root = Utils.$("overviewTab");
-    if (!(root instanceof HTMLElement)) {
-      return;
-    }
-    root.classList.add("is-budget-resize-refresh");
-    void root.getBoundingClientRect();
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        root.classList.remove("is-budget-resize-refresh");
-      });
-    });
   },
 
   getBudgetLayoutKey() {

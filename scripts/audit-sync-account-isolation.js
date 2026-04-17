@@ -247,6 +247,39 @@ async function collectSentinelState(page, sentinel) {
   }, sentinel);
 }
 
+async function waitForSyncSettled(page, stage = "sync-settled") {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < 45000) {
+    const state = await page.evaluate(() => ({
+      authenticated: typeof Auth !== "undefined" && typeof Auth.isAuthenticated === "function"
+        ? Auth.isAuthenticated()
+        : false,
+      syncStatus: typeof Sync !== "undefined" ? Sync.status || "" : "",
+      lastError: typeof Sync !== "undefined" ? Sync.lastError || "" : ""
+    }));
+
+    if (
+      state.authenticated &&
+      (state.syncStatus === "synced" || state.syncStatus === "local") &&
+      !state.lastError
+    ) {
+      return state;
+    }
+
+    await page.waitForTimeout(400);
+  }
+
+  const finalState = await page.evaluate(() => ({
+    authenticated: typeof Auth !== "undefined" && typeof Auth.isAuthenticated === "function"
+      ? Auth.isAuthenticated()
+      : false,
+    syncStatus: typeof Sync !== "undefined" ? Sync.status || "" : "",
+    lastError: typeof Sync !== "undefined" ? Sync.lastError || "" : "",
+    login: typeof Auth !== "undefined" && typeof Auth.getLogin === "function" ? Auth.getLogin() : null
+  }));
+  fail("Sync did not settle cleanly in time", { stage, ...finalState });
+}
+
 async function auditRealAccountUi(page) {
   await page.locator(".sidebar [data-tab-target='analyticsTab']").click();
   await page.waitForSelector("#heatmapWrap", { state: "visible" });
@@ -353,9 +386,11 @@ async function main() {
     await auditRealAccountUi(page);
 
     const realSeed = await injectSentinel(page, REAL_SENTINEL);
+    await waitForSyncSettled(page, "real-seed");
     assert(realSeed.authenticated === true, "Real account must stay authenticated during sync", realSeed);
     assert(realSeed.contains === true, "Real sentinel must exist after cloud save", realSeed);
-    assert(realSeed.lastError === "", "Cloud save must finish without sync error", realSeed);
+    const settledSeedState = await collectSentinelState(page, REAL_SENTINEL);
+    assert(settledSeedState.inStore === true, "Real sentinel must remain in store after sync settles", settledSeedState);
 
     await logoutToStartup(page);
     await loginDemo(page);
@@ -366,6 +401,7 @@ async function main() {
 
     await logoutToStartup(page);
     await loginRealAccount(page, realLogin, realPassword);
+    await waitForSyncSettled(page, "real-relogin");
 
     const realReturn = await collectSentinelState(page, REAL_SENTINEL);
     const leakedDemoToReal = await collectSentinelState(page, DEMO_SENTINEL);

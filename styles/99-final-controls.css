@@ -1312,17 +1312,6 @@
   line-height: 40px !important;
 }
 
-.tab-panel.is-budget-resize-refresh .hero-strip__headline,
-.tab-panel.is-budget-resize-refresh .journal-section,
-.tab-panel.is-budget-resize-refresh .entry-list,
-.tab-panel.is-budget-resize-refresh .entry-row,
-.tab-panel.is-budget-resize-refresh .legend-chip,
-.tab-panel.is-budget-resize-refresh .budget-limit-card,
-.tab-panel.is-budget-resize-refresh .summary-card {
-  transform: translateZ(0) !important;
-  backface-visibility: hidden !important;
-}
-
 @media (max-width: 768px) {
   .journal-section__head {
     gap: 8px !important;
