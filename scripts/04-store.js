@@ -13,6 +13,7 @@ const Store = {
     monthlySeries: new Map(),
     expenseBreakdown: new Map(),
     heatmapDays: new Map(),
+    budgetLimitProgress: new Map(),
     recurringCandidates: null,
     forecast: new Map(),
     paymentCalendar: new Map()
@@ -38,6 +39,7 @@ const Store = {
     this.derivedCache.monthlySeries = new Map();
     this.derivedCache.expenseBreakdown = new Map();
     this.derivedCache.heatmapDays = new Map();
+    this.derivedCache.budgetLimitProgress = new Map();
     this.derivedCache.recurringCandidates = null;
     this.derivedCache.forecast = new Map();
     this.derivedCache.paymentCalendar = new Map();
@@ -53,26 +55,6 @@ const Store = {
     this.data.transactions.forEach((transaction) => {
       if (transaction.type === "expense" && transaction.flowKind === "debt" && transaction.categoryId !== debtCategoryId) {
         transaction.categoryId = debtCategoryId;
-      }
-    });
-    this.data.settings.tagCatalog = Array.isArray(this.data.settings.tagCatalog) ? this.data.settings.tagCatalog : [];
-    const usedTags = new Set();
-    this.data.transactions.forEach((item) => Utils.normalizeTags(item.tags).forEach((tag) => usedTags.add(tag)));
-    this.data.settings.templates.forEach((item) => Utils.normalizeTags(item.tags).forEach((tag) => usedTags.add(tag)));
-    this.data.settings.favorites.forEach((item) => Utils.normalizeTags(item.tags).forEach((tag) => usedTags.add(tag)));
-    this.data.settings.goals.forEach((item) => Utils.normalizeTags(item.tag).forEach((tag) => usedTags.add(tag)));
-    usedTags.forEach((tagName) => {
-      if (this.data.settings.tagCatalog.some((item) => item.name === tagName)) {
-        return;
-      }
-      const nextTag = normalizeTagDefinition({
-        name: tagName,
-        color: "#58a6ff",
-        note: "",
-        position: getTopInsertPosition(this.data.settings.tagCatalog)
-      });
-      if (nextTag) {
-        this.data.settings.tagCatalog.unshift(nextTag);
       }
     });
     this.getMonthKeys().forEach((monthKey) => ensureDefaultMonthMeta(this.data.months, monthKey));
@@ -101,7 +83,7 @@ const Store = {
     this.data.transactions.forEach((transaction) => {
       nextIndex.set(
         transaction.id,
-        Utils.normalizeLookupKey(`${transaction.description || ""} ${categories.get(transaction.categoryId) || ""} ${Utils.formatTags(transaction.tags || [])}`)
+        Utils.normalizeLookupKey(`${transaction.description || ""} ${categories.get(transaction.categoryId) || ""}`)
       );
     });
     this.searchIndex = nextIndex;
@@ -202,142 +184,6 @@ const Store = {
 
   getCategory(categoryId) {
     return findCategory(this.data.settings.categories, categoryId);
-  },
-
-  collectAllTags() {
-    const map = new Map();
-    const ensure = (tag, fallback = {}) => {
-      const normalized = Utils.normalizeTags(tag)[0] || "";
-      if (!normalized) {
-        return;
-      }
-      const current = map.get(normalized) || {
-        id: fallback.id || `tag_${Utils.normalizeLookupKey(normalized)}`,
-        name: normalized,
-        color: fallback.color || "#58a6ff",
-        note: fallback.note || "",
-        position: Number.isFinite(Number(fallback.position)) ? Number(fallback.position) : (1000 + map.size),
-        createdAt: fallback.createdAt || Utils.nowISO(),
-        updatedAt: fallback.updatedAt || Utils.nowISO()
-      };
-      map.set(normalized, current);
-    };
-
-    (this.data.settings.tagCatalog || []).forEach((item) => ensure(item.name, item));
-    this.data.transactions.forEach((item) => (item.tags || []).forEach((tag) => ensure(tag)));
-    this.data.settings.templates.forEach((item) => (item.tags || []).forEach((tag) => ensure(tag)));
-    this.data.settings.favorites.forEach((item) => (item.tags || []).forEach((tag) => ensure(tag)));
-    (this.data.settings.goals || []).forEach((item) => ensure(item.tag));
-    return map;
-  },
-
-  getTagCatalog() {
-    return Array.from(this.collectAllTags().values()).sort((a, b) => Number(a.position) - Number(b.position));
-  },
-
-  getTagDefinition(nameOrId) {
-    const normalizedTag = Utils.normalizeTags(nameOrId)[0] || "";
-    return this.getTagCatalog().find((item) => item.id === nameOrId || item.name === normalizedTag) || null;
-  },
-
-  saveTagDefinition(payload) {
-    this.mutate((draft) => {
-      draft.settings.tagCatalog = Array.isArray(draft.settings.tagCatalog) ? draft.settings.tagCatalog : [];
-      const current = payload.id ? draft.settings.tagCatalog.find((item) => item.id === payload.id) : null;
-      const previousName = current?.name || "";
-      const next = normalizeTagDefinition({
-        ...current,
-        ...payload,
-        id: payload.id || current?.id || Utils.uid("tag"),
-        position: current?.position ?? getTopInsertPosition(draft.settings.tagCatalog || [])
-      });
-      if (!next) {
-        return;
-      }
-
-      const renameMap = previousName && previousName !== next.name
-        ? (tags) => Utils.normalizeTags((tags || []).map((tag) => (tag === previousName ? next.name : tag)))
-        : (tags) => Utils.normalizeTags(tags || []);
-
-      draft.transactions.forEach((transaction) => {
-        transaction.tags = renameMap(transaction.tags);
-      });
-      draft.settings.templates.forEach((item) => {
-        item.tags = renameMap(item.tags);
-      });
-      draft.settings.favorites.forEach((item) => {
-        item.tags = renameMap(item.tags);
-      });
-      (draft.settings.goals || []).forEach((goal) => {
-        if (goal.tag === previousName) {
-          goal.tag = next.name;
-        }
-      });
-
-      const existingIndex = draft.settings.tagCatalog.findIndex((item) => item.id === next.id);
-      if (existingIndex >= 0) {
-        draft.settings.tagCatalog[existingIndex] = {
-          ...draft.settings.tagCatalog[existingIndex],
-          ...next,
-          updatedAt: Utils.nowISO()
-        };
-      } else {
-        draft.settings.tagCatalog.unshift(next);
-      }
-    });
-  },
-
-  ensureTagCatalogEntries(tags) {
-    const normalized = Utils.normalizeTags(tags);
-    if (!normalized.length) {
-      return;
-    }
-    this.mutate((draft) => {
-      draft.settings.tagCatalog = Array.isArray(draft.settings.tagCatalog) ? draft.settings.tagCatalog : [];
-      normalized.forEach((tagName) => {
-        if (draft.settings.tagCatalog.some((item) => item.name === tagName)) {
-          return;
-        }
-        const next = normalizeTagDefinition({
-          name: tagName,
-          color: "#58a6ff",
-          note: "",
-          position: getTopInsertPosition(draft.settings.tagCatalog || [])
-        });
-        if (next) {
-          draft.settings.tagCatalog.unshift(next);
-        }
-      });
-    }, { queueSync: false });
-  },
-
-  deleteTagDefinition(tagId, explicitName = "") {
-    this.mutate((draft) => {
-      draft.settings.tagCatalog = Array.isArray(draft.settings.tagCatalog) ? draft.settings.tagCatalog : [];
-      const current = draft.settings.tagCatalog.find((item) => item.id === tagId);
-      const tagName = current?.name || (Utils.normalizeTags(explicitName)[0] || "");
-      if (tagName) {
-        const prune = (tags) => Utils.normalizeTags((tags || []).filter((tag) => tag !== tagName));
-        draft.transactions.forEach((transaction) => {
-          transaction.tags = prune(transaction.tags);
-        });
-        draft.settings.templates.forEach((item) => {
-          item.tags = prune(item.tags);
-        });
-        draft.settings.favorites.forEach((item) => {
-          item.tags = prune(item.tags);
-        });
-        (draft.settings.goals || []).forEach((goal) => {
-          if (goal.tag === tagName) {
-            goal.tag = "";
-            if (goal.mode === "tag") {
-              goal.mode = "saved";
-            }
-          }
-        });
-      }
-      draft.settings.tagCatalog = draft.settings.tagCatalog.filter((item) => item.id !== tagId);
-    });
   },
 
   getTransactions(period = "all", monthKey = this.viewMonth) {
@@ -711,6 +557,72 @@ const Store = {
     return totals;
   },
 
+  budgetLimitProgress(monthKey = this.viewMonth) {
+    const cacheKey = String(monthKey || this.viewMonth);
+    const cached = this.derivedCache.budgetLimitProgress.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+    const spentByCategory = new Map();
+    this.getTransactions("month", cacheKey).forEach((transaction) => {
+      if (transaction.type !== "expense") {
+        return;
+      }
+      spentByCategory.set(
+        transaction.categoryId,
+        Utils.roundMoney((spentByCategory.get(transaction.categoryId) || 0) + transaction.amount)
+      );
+    });
+    const result = this.getCategories("expense")
+      .filter((category) => Utils.parseAmount(category.limit) > 0)
+      .map((category) => {
+        const limit = Math.max(0, Utils.roundMoney(Utils.parseAmount(category.limit)));
+        const spent = Utils.roundMoney(spentByCategory.get(category.id) || 0);
+        const usage = limit > 0 ? (spent / limit) * 100 : 0;
+        const remaining = Utils.roundMoney(limit - spent);
+        return {
+          category,
+          limit,
+          spent,
+          remaining,
+          overage: remaining < 0 ? Math.abs(remaining) : 0,
+          progress: Math.max(0, Math.min(100, usage)),
+          usage,
+          exceeded: spent > limit
+        };
+      })
+      .sort((a, b) => {
+        if (a.exceeded !== b.exceeded) {
+          return Number(b.exceeded) - Number(a.exceeded);
+        }
+        if (Math.abs(a.usage - b.usage) > 0.01) {
+          return b.usage - a.usage;
+        }
+        return b.spent - a.spent;
+      });
+    this.derivedCache.budgetLimitProgress.set(cacheKey, result);
+    return result;
+  },
+
+  getQuickItemTimestamp(item) {
+    if (!item || typeof item !== "object") {
+      return 0;
+    }
+    const timestamp = new Date(item.updatedAt || item.createdAt || 0).getTime();
+    return Number.isFinite(timestamp) ? timestamp : 0;
+  },
+
+  sortQuickItems(items) {
+    return [...(Array.isArray(items) ? items : [])].sort((left, right) => {
+      const rightStamp = this.getQuickItemTimestamp(right);
+      const leftStamp = this.getQuickItemTimestamp(left);
+      if (rightStamp !== leftStamp) {
+        return rightStamp - leftStamp;
+      }
+      return String(right?.desc || "").localeCompare(String(left?.desc || ""), "ru-RU");
+    });
+  },
+
   recurringCandidates() {
     if (this.derivedCache.recurringCandidates) {
       return this.derivedCache.recurringCandidates;
@@ -758,18 +670,11 @@ const Store = {
     }
     const stats = this.statsForMonth(monthKey);
     let currentAmount = 0;
-    // У цели есть 3 режима:
-    // 1) saved  -> пользователь вручную вбивает накопленную сумму,
-    // 2) tag    -> прогресс считается по операциям с указанным тегом,
-    // 3) balance-> берем остаток на конец месяца как доступный прогресс.
+    // У цели осталось 2 режима:
+    // 1) saved   -> пользователь вручную вбивает накопленную сумму,
+    // 2) balance -> берем остаток на конец месяца как доступный прогресс.
     if (normalized.mode === "saved") {
       currentAmount = normalized.saved;
-    } else if (normalized.mode === "tag" && normalized.tag) {
-      currentAmount = Utils.roundMoney(
-        this.data.transactions
-          .filter((transaction) => (transaction.tags || []).includes(normalized.tag))
-          .reduce((sum, transaction) => sum + transaction.amount, 0)
-      );
     } else {
       currentAmount = Math.max(0, stats.finalBalance);
     }
@@ -921,108 +826,6 @@ const Store = {
     return result;
   },
 
-  tagGroups(monthKey = this.viewMonth) {
-    const groups = new Map();
-    this.getTransactions("month", monthKey).forEach((transaction) => {
-      const tags = Utils.normalizeTags(transaction.tags);
-      tags.forEach((tag) => {
-        if (!groups.has(tag)) {
-          groups.set(tag, {
-            tag,
-            amount: 0,
-            income: 0,
-            expense: 0,
-            items: []
-          });
-        }
-        const group = groups.get(tag);
-        group.amount = Utils.roundMoney(group.amount + transaction.amount);
-        if (transaction.type === "income") {
-          group.income = Utils.roundMoney(group.income + transaction.amount);
-        } else {
-          group.expense = Utils.roundMoney(group.expense + transaction.amount);
-        }
-        group.items.push(transaction);
-      });
-    });
-    return Array.from(groups.values())
-      .sort((a, b) => b.items.length - a.items.length || b.amount - a.amount);
-  },
-
-  tagStats(monthKey = this.viewMonth) {
-    const catalog = this.getTagCatalog();
-    const groups = this.tagGroups(monthKey);
-    const taggedTransactions = this.getTransactions("month", monthKey).filter((item) => Utils.normalizeTags(item.tags).length > 0);
-    const usageCount = groups.reduce((sum, group) => sum + group.items.length, 0);
-    return {
-      totalTags: catalog.length,
-      activeTags: groups.length,
-      taggedTransactions: taggedTransactions.length,
-      usageCount,
-      topTag: groups[0] || null
-    };
-  },
-
-  tagUsageDetails(tagName, monthKey = this.viewMonth) {
-    const normalizedTag = Utils.normalizeTags(tagName)[0] || "";
-    if (!normalizedTag) {
-      return null;
-    }
-    const monthItems = this.getTransactions("month", monthKey)
-      .filter((item) => Utils.normalizeTags(item.tags).includes(normalizedTag))
-      .sort((a, b) => recordTimestamp(b) - recordTimestamp(a));
-    const historyItems = this.data.transactions
-      .filter((item) => Utils.normalizeTags(item.tags).includes(normalizedTag))
-      .sort((a, b) => recordTimestamp(b) - recordTimestamp(a));
-    const templates = (this.data.settings.templates || []).filter((item) => Utils.normalizeTags(item.tags).includes(normalizedTag));
-    const favorites = (this.data.settings.favorites || []).filter((item) => Utils.normalizeTags(item.tags).includes(normalizedTag));
-    const linkedGoals = (this.data.settings.goals || []).filter((item) => (item.tag || "") === normalizedTag);
-    const expenseCategories = new Map();
-
-    monthItems.forEach((item) => {
-      if (item.type !== "expense") {
-        return;
-      }
-      const category = this.getCategory(item.categoryId);
-      const key = category?.id || item.categoryId || "unknown";
-      const current = expenseCategories.get(key) || {
-        categoryId: key,
-        name: category?.name || "Без категории",
-        color: category?.color || "#8b949e",
-        amount: 0,
-        count: 0
-      };
-      current.amount = Utils.roundMoney(current.amount + item.amount);
-      current.count += 1;
-      expenseCategories.set(key, current);
-    });
-
-    const income = monthItems
-      .filter((item) => item.type === "income")
-      .reduce((sum, item) => Utils.roundMoney(sum + item.amount), 0);
-    const expense = monthItems
-      .filter((item) => item.type === "expense")
-      .reduce((sum, item) => Utils.roundMoney(sum + item.amount), 0);
-
-    return {
-      tag: normalizedTag,
-      definition: this.getTagDefinition(normalizedTag),
-      monthItems,
-      historyItems,
-      monthCount: monthItems.length,
-      totalCount: historyItems.length,
-      turnover: monthItems.reduce((sum, item) => Utils.roundMoney(sum + item.amount), 0),
-      income,
-      expense,
-      templatesCount: templates.length,
-      favoritesCount: favorites.length,
-      goalsCount: linkedGoals.length,
-      recentItems: historyItems.slice(0, 8),
-      expenseCategories: Array.from(expenseCategories.values()).sort((a, b) => b.amount - a.amount || b.count - a.count),
-      lastUsedAt: historyItems[0]?.updatedAt || historyItems[0]?.date || null
-    };
-  },
-
   addSectionRow(section) {
     if (section === "wishlist") {
       this.mutate((draft) => {
@@ -1064,22 +867,6 @@ const Store = {
       const monthKey = payload.date.slice(0, 7);
       const monthTransactions = draft.transactions.filter((item) => item.date.slice(0, 7) === monthKey);
       ensureDefaultMonthMeta(draft.months, monthKey);
-      draft.settings.tagCatalog = Array.isArray(draft.settings.tagCatalog) ? draft.settings.tagCatalog : [];
-      const normalizedTags = Utils.normalizeTags(payload.tags);
-      normalizedTags.forEach((tagName) => {
-        if (draft.settings.tagCatalog.some((item) => item.name === tagName)) {
-          return;
-        }
-        const nextTag = normalizeTagDefinition({
-          name: tagName,
-          color: "#58a6ff",
-          note: "",
-          position: getTopInsertPosition(draft.settings.tagCatalog || [])
-        });
-        if (nextTag) {
-          draft.settings.tagCatalog.unshift(nextTag);
-        }
-      });
       draft.transactions.unshift({
         id: Utils.uid("tx"),
         type: payload.type,
@@ -1089,7 +876,6 @@ const Store = {
           ? this.getDefaultCategoryId("debts")
           : payload.categoryId,
         description: payload.description,
-        tags: normalizedTags,
         date: payload.date,
         position: Number.isFinite(Number(payload.position)) ? Number(payload.position) : getBottomInsertPosition(monthTransactions),
         createdAt: Utils.nowISO(),
@@ -1106,29 +892,12 @@ const Store = {
       }
       const monthKey = payload.date.slice(0, 7);
       ensureDefaultMonthMeta(draft.months, monthKey);
-      draft.settings.tagCatalog = Array.isArray(draft.settings.tagCatalog) ? draft.settings.tagCatalog : [];
-      const normalizedTags = Utils.normalizeTags(payload.tags ?? draft.transactions[index].tags);
-      normalizedTags.forEach((tagName) => {
-        if (draft.settings.tagCatalog.some((item) => item.name === tagName)) {
-          return;
-        }
-        const nextTag = normalizeTagDefinition({
-          name: tagName,
-          color: "#58a6ff",
-          note: "",
-          position: getTopInsertPosition(draft.settings.tagCatalog || [])
-        });
-        if (nextTag) {
-          draft.settings.tagCatalog.unshift(nextTag);
-        }
-      });
       draft.transactions[index] = {
         ...draft.transactions[index],
         ...payload,
         categoryId: payload.type === "expense" && payload.flowKind === "debt"
           ? this.getDefaultCategoryId("debts")
           : payload.categoryId,
-        tags: normalizedTags,
         updatedAt: Utils.nowISO()
       };
     });
@@ -1167,24 +936,6 @@ const Store = {
       if (transaction.type === "expense" && transaction.flowKind === "debt") {
         transaction.categoryId = this.getDefaultCategoryId("debts");
       }
-      if (Object.prototype.hasOwnProperty.call(patch, "tags")) {
-        transaction.tags = Utils.normalizeTags(patch.tags);
-        draft.settings.tagCatalog = Array.isArray(draft.settings.tagCatalog) ? draft.settings.tagCatalog : [];
-        transaction.tags.forEach((tagName) => {
-          if (draft.settings.tagCatalog.some((item) => item.name === tagName)) {
-            return;
-          }
-          const nextTag = normalizeTagDefinition({
-            name: tagName,
-            color: "#58a6ff",
-            note: "",
-            position: getTopInsertPosition(draft.settings.tagCatalog || [])
-          });
-          if (nextTag) {
-            draft.settings.tagCatalog.unshift(nextTag);
-          }
-        });
-      }
       transaction.updatedAt = Utils.nowISO();
     });
   },
@@ -1203,6 +954,7 @@ const Store = {
       return false;
     }
     this.mutate((draft) => {
+      const now = Utils.nowISO();
       draft.settings.favorites.unshift({
         id: Utils.uid("fav"),
         desc: transaction.description,
@@ -1210,7 +962,8 @@ const Store = {
         type: "expense",
         categoryId: transaction.categoryId,
         flowKind: "standard",
-        tags: Utils.normalizeTags(transaction.tags)
+        createdAt: now,
+        updatedAt: now
       });
     });
     return true;
@@ -1240,6 +993,83 @@ const Store = {
     return this.data.settings.favorites.some((item) =>
       item.desc === transaction.description &&
       item.categoryId === transaction.categoryId &&
+      Math.abs(item.amount - transaction.amount) < 0.01
+    );
+  },
+
+  getTemplateBucketForTransaction(transaction) {
+    if (!transaction) {
+      return "recurring";
+    }
+    return normalizeTemplateBucket(null, transaction.type, transaction.flowKind);
+  },
+
+  getTemplatesByBucket(bucket) {
+    const normalizedBucket = normalizeTemplateBucket(bucket);
+    return this.sortQuickItems(this.data.settings.templates.filter((item) =>
+      normalizeTemplateBucket(item.bucket, item.type, item.flowKind) === normalizedBucket
+    ));
+  },
+
+  addTemplateFromTransaction(transactionId, bucket = null) {
+    const transaction = this.data.transactions.find((item) => item.id === transactionId);
+    if (!transaction) {
+      return false;
+    }
+    const normalizedBucket = normalizeTemplateBucket(bucket, transaction.type, transaction.flowKind);
+    const exists = this.getTemplatesByBucket(normalizedBucket).some((item) =>
+      item.desc === transaction.description &&
+      item.categoryId === transaction.categoryId &&
+      item.type === transaction.type &&
+      item.flowKind === transaction.flowKind &&
+      Math.abs(item.amount - transaction.amount) < 0.01
+    );
+    if (exists) {
+      return false;
+    }
+    this.saveTemplate({
+      kind: "template",
+      bucket: normalizedBucket,
+      desc: transaction.description,
+      amount: transaction.amount,
+      type: transaction.type,
+      categoryId: transaction.categoryId,
+      flowKind: transaction.type === "income" ? "standard" : transaction.flowKind
+    });
+    return true;
+  },
+
+  removeTemplateFromTransaction(transactionId, bucket = null) {
+    const transaction = this.data.transactions.find((item) => item.id === transactionId);
+    if (!transaction) {
+      return false;
+    }
+    const normalizedBucket = normalizeTemplateBucket(bucket, transaction.type, transaction.flowKind);
+    const before = this.data.settings.templates.length;
+    this.mutate((draft) => {
+      draft.settings.templates = draft.settings.templates.filter((item) => !(
+        normalizeTemplateBucket(item.bucket, item.type, item.flowKind) === normalizedBucket &&
+        item.desc === transaction.description &&
+        item.categoryId === transaction.categoryId &&
+        item.type === transaction.type &&
+        item.flowKind === (transaction.type === "income" ? "standard" : transaction.flowKind) &&
+        Math.abs(item.amount - transaction.amount) < 0.01
+      ));
+    });
+    return this.data.settings.templates.length < before;
+  },
+
+  isTemplateTransaction(transactionId, bucket = null) {
+    const transaction = this.data.transactions.find((item) => item.id === transactionId);
+    if (!transaction) {
+      return false;
+    }
+    const normalizedBucket = normalizeTemplateBucket(bucket, transaction.type, transaction.flowKind);
+    return this.getTemplatesByBucket(normalizedBucket).some((item) =>
+      item.desc === transaction.description &&
+      item.categoryId === transaction.categoryId &&
+      item.type === transaction.type &&
+      item.flowKind === (transaction.type === "income" ? "standard" : transaction.flowKind) &&
       Math.abs(item.amount - transaction.amount) < 0.01
     );
   },
@@ -1345,6 +1175,10 @@ const Store = {
 
   saveTemplate(payload) {
     this.mutate((draft) => {
+      const listName = payload.kind === "favorite" ? "favorites" : "templates";
+      const existingIndex = draft.settings[listName].findIndex((item) => item.id === payload.id);
+      const existing = existingIndex >= 0 ? draft.settings[listName][existingIndex] : null;
+      const now = Utils.nowISO();
       const next = {
         id: payload.id || Utils.uid(payload.kind === "favorite" ? "fav" : "tpl"),
         desc: payload.desc,
@@ -1352,27 +1186,13 @@ const Store = {
         type: payload.type,
         categoryId: payload.categoryId,
         flowKind: payload.flowKind,
-        tags: Utils.normalizeTags(payload.tags)
+        bucket: payload.kind === "favorite" ? undefined : normalizeTemplateBucket(payload.bucket, payload.type, payload.flowKind),
+        createdAt: existing?.createdAt || payload.createdAt || now,
+        updatedAt: now
       };
-      draft.settings.tagCatalog = Array.isArray(draft.settings.tagCatalog) ? draft.settings.tagCatalog : [];
-      next.tags.forEach((tagName) => {
-        if (draft.settings.tagCatalog.some((item) => item.name === tagName)) {
-          return;
-        }
-        const nextTag = normalizeTagDefinition({
-          name: tagName,
-          color: "#58a6ff",
-          note: "",
-          position: getTopInsertPosition(draft.settings.tagCatalog || [])
-        });
-        if (nextTag) {
-          draft.settings.tagCatalog.unshift(nextTag);
-        }
-      });
-      const listName = payload.kind === "favorite" ? "favorites" : "templates";
-      const existingIndex = draft.settings[listName].findIndex((item) => item.id === next.id);
       if (existingIndex >= 0) {
-        draft.settings[listName][existingIndex] = next;
+        draft.settings[listName].splice(existingIndex, 1);
+        draft.settings[listName].unshift(next);
       } else {
         draft.settings[listName].unshift(next);
       }
@@ -1396,7 +1216,6 @@ const Store = {
       amount: template.amount,
       categoryId: template.categoryId,
       flowKind: template.flowKind,
-      tags: template.tags,
       description: template.desc,
       date: Utils.todayISO()
     });
@@ -1416,7 +1235,6 @@ const Store = {
       amount: favorite.amount,
       categoryId: favorite.categoryId || this.getDefaultCategoryId("expenses"),
       flowKind: "standard",
-      tags: favorite.tags,
       description: favorite.desc,
       date: targetDate
     });
@@ -1427,7 +1245,6 @@ const Store = {
     const targetDate = this.viewMonth === Utils.monthKey(today)
       ? Utils.todayISO()
       : `${this.viewMonth}-${String(Math.min(28, today.getDate())).padStart(2, "0")}`;
-    const recurringCategoryId = this.getDefaultCategoryId("recurring");
     this.mutate((draft) => {
       let positionCursor = getTopInsertPosition(
         draft.transactions.filter((item) => item.date.slice(0, 7) === targetDate.slice(0, 7)),
@@ -1438,14 +1255,28 @@ const Store = {
         if (!item) {
           return;
         }
+        const bucket = normalizeTemplateBucket(item.bucket, item.type, item.flowKind);
+        const type = item.type === "income" ? "income" : "expense";
+        const flowKind = type === "income"
+          ? "standard"
+          : (item.flowKind === "debt" || item.flowKind === "recurring" ? item.flowKind : "standard");
+        let categoryId = item.categoryId;
+        if (!findCategory(draft.settings.categories, categoryId)) {
+          categoryId = type === "income"
+            ? this.getDefaultCategoryId("incomes")
+            : bucket === "debt"
+              ? this.getDefaultCategoryId("debts")
+              : bucket === "recurring"
+                ? this.getDefaultCategoryId("recurring")
+                : this.getDefaultCategoryId("expenses");
+        }
         draft.transactions.unshift({
           id: Utils.uid("tx"),
-          type: "expense",
-          flowKind: "recurring",
+          type,
+          flowKind,
           amount: item.amount,
-          categoryId: recurringCategoryId,
+          categoryId,
           description: item.desc,
-          tags: Utils.normalizeTags(item.tags),
           date: targetDate,
           position: positionCursor++,
           createdAt: Utils.nowISO(),
@@ -1478,7 +1309,6 @@ const Store = {
           amount: item.amount,
           categoryId: item.categoryId || "exp_other",
           description: item.desc,
-          tags: Utils.normalizeTags(item.tags),
           date: targetDate,
           position: positionCursor++,
           createdAt: Utils.nowISO(),
@@ -1641,21 +1471,24 @@ const Store = {
           id: item.id,
           desc: item.desc,
           amount: Utils.roundMoney(item.amount),
-          tag: this.getCategory(item.categoryId)?.name || "",
+          category: this.getCategory(item.categoryId)?.name || "",
           categoryId: item.categoryId,
           type: item.type,
           flowKind: item.flowKind,
-          tags: Utils.normalizeTags(item.tags)
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt
         })),
         templates: this.data.settings.templates.map((item) => ({
           id: item.id,
           desc: item.desc,
           amount: Utils.roundMoney(item.amount),
-          tag: this.getCategory(item.categoryId)?.name || "",
+          category: this.getCategory(item.categoryId)?.name || "",
           categoryId: item.categoryId,
+          bucket: normalizeTemplateBucket(item.bucket, item.type, item.flowKind),
           type: item.type,
           flowKind: item.flowKind,
-          tags: Utils.normalizeTags(item.tags)
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt
         })),
         goals: (this.data.settings.goals || []).map((item) => ({
           id: item.id,
@@ -1663,18 +1496,8 @@ const Store = {
           target: Utils.roundMoney(item.target),
           mode: item.mode,
           saved: Utils.roundMoney(item.saved),
-          tag: item.tag || "",
           note: item.note || "",
           color: item.color,
-          position: item.position,
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt
-        })),
-        tagCatalog: (this.data.settings.tagCatalog || []).map((item) => ({
-          id: item.id,
-          name: item.name,
-          color: item.color,
-          note: item.note || "",
           position: item.position,
           createdAt: item.createdAt,
           updatedAt: item.updatedAt
@@ -1707,9 +1530,8 @@ const Store = {
           day: Number(transaction.date.slice(-2)),
           amount: Utils.roundMoney(transaction.amount),
           desc: transaction.description,
-          tag: this.getCategory(transaction.categoryId)?.name || "",
+          category: this.getCategory(transaction.categoryId)?.name || "",
           position: transaction.position,
-          tags: Utils.normalizeTags(transaction.tags),
           createdAt: transaction.createdAt,
           updatedAt: transaction.updatedAt
         };

@@ -20,7 +20,7 @@ Object.assign(UI, {
       applyBtn.disabled = !selectedId;
 
       if (!categories.length) {
-        listRoot.innerHTML = '<div class="empty-state empty-state--compact">Категории пока не созданы</div>';
+        listRoot.innerHTML = '<div class="empty-state empty-state--compact">Сначала добавьте хотя бы одну категорию в настройках.</div>';
         return;
       }
 
@@ -41,19 +41,27 @@ Object.assign(UI, {
       return;
     }
 
-    const source = UI.pickerState.kind === "favorites" ? Store.data.settings.favorites : Store.data.settings.templates;
-    title.textContent = UI.pickerState.kind === "favorites" ? "Выберите избранное" : "Выберите шаблоны";
+    const isFavorite = UI.pickerState.kind === "favorites";
+    const templateBucket = UI.pickerState.kind?.startsWith?.("templates-")
+      ? UI.pickerState.kind.replace("templates-", "")
+      : null;
+    const templateMeta = templateBucket ? getTemplateBucketMeta(templateBucket) : null;
+    const source = isFavorite
+      ? Store.data.settings.favorites
+      : (templateBucket ? Store.getTemplatesByBucket(templateBucket) : Store.data.settings.templates);
+    title.textContent = isFavorite ? "Выберите избранное" : (templateMeta?.pickerTitle || "Выберите шаблоны");
     count.textContent = UI.pickerState.ids.size ? `Выбрано: ${UI.pickerState.ids.size}` : "Ничего не выбрано";
-    applyBtn.textContent = UI.pickerState.kind === "favorites" ? "Добавить в текущие расходы" : "Добавить в обязательные";
+    applyBtn.textContent = isFavorite ? "Добавить в текущие расходы" : (templateMeta?.pickerApplyText || "Добавить по шаблону");
     applyBtn.disabled = !source.length;
 
     if (!source.length) {
-      listRoot.innerHTML = '<div class="empty-state empty-state--compact">Список пуст</div>';
+      listRoot.innerHTML = `<div class="empty-state empty-state--compact">${isFavorite ? "Список избранного пока пуст. Сохраните первую покупку, чтобы добавлять ее в один клик." : "Сценарии пока не готовы. Создайте первый шаблон, и он появится здесь."}</div>`;
       return;
     }
 
     listRoot.innerHTML = source.map((item) => {
-      const categoryName = Store.getCategory(item.categoryId)?.name || (UI.pickerState.kind === "favorites" ? "Без категории" : "Обязательный платеж");
+      const categoryName = Store.getCategory(item.categoryId)?.name
+        || (isFavorite ? "Без категории" : (templateMeta?.itemLabel || "Шаблон"));
       const checked = UI.pickerState.ids.has(item.id);
       return `
         <button class="picker-item${checked ? " is-active" : ""}" type="button" data-picker-toggle="${item.id}">
@@ -109,6 +117,19 @@ Object.assign(UI, {
       grid: colors.grid,
       accent: colors.accent
     });
+    const flowLegendLabels = {
+      color: colors.text,
+      usePointStyle: true,
+      pointStyle: "circle",
+      boxWidth: 8,
+      boxHeight: 8,
+      padding: 14,
+      font: {
+        size: 11,
+        weight: "700",
+        lineHeight: 1.15
+      }
+    };
     if (!this.charts.flow) {
       this.charts.flow = new window.Chart(Utils.$("cashFlowChart"), {
         type: "bar",
@@ -122,7 +143,7 @@ Object.assign(UI, {
           animation: false,
           plugins: {
             legend: {
-              labels: { color: colors.text, usePointStyle: true }
+              labels: flowLegendLabels
             }
           },
           scales: {
@@ -144,7 +165,9 @@ Object.assign(UI, {
     } else if (this.flowChartSignature !== flowSignature) {
       this.charts.flow.data.labels = flowLabels;
       this.charts.flow.data.datasets = flowDatasets;
-      this.charts.flow.options.plugins.legend.labels.color = colors.text;
+      Object.assign(this.charts.flow.options.plugins.legend.labels, flowLegendLabels, {
+        color: colors.text
+      });
       this.charts.flow.options.scales.x.ticks.color = colors.text;
       this.charts.flow.options.scales.x.grid.color = colors.grid;
       this.charts.flow.options.scales.y.ticks.color = colors.text;
@@ -262,22 +285,35 @@ Object.assign(UI, {
 
   renderActiveTabContent(tabId = Store.activeTab) {
     if (tabId === "overviewTab") {
-      const chartsReady = !this.monthTrendCollapsed ? this.ensureChartsReady({ silent: true }) : null;
+      const chartsReady = this.ensureChartsReady({ silent: true });
+      this.renderMonthBalanceLegend(Utils.themePalette());
       this.renderSummary();
       this.renderMonthPlan();
       this.renderBudgetFilters();
       this.renderJournal();
       this.renderTransactions();
-      this.renderOverviewExpenseLegend();
-      if (this.monthTrendCollapsed) {
-        this.refreshCompactTextareas();
-        return;
-      }
+      App.runAfterNextPaint(() => {
+        if (Store.activeTab === "overviewTab") {
+          this.renderOverviewExpenseLegend();
+          this.renderBudgetLimits();
+          this.syncBudgetWorkspaceLayout();
+        }
+      }, 1);
+      App.runAfterNextPaint(() => {
+        if (Store.activeTab === "overviewTab") {
+          this.syncBudgetWorkspaceLayout();
+        }
+      }, 2);
       chartsReady.then(() => {
         if (Store.activeTab !== "overviewTab") {
           return;
         }
         this.renderMonthBalanceChart();
+        App.runAfterNextPaint(() => {
+          if (Store.activeTab === "overviewTab") {
+            this.syncBudgetWorkspaceLayout();
+          }
+        }, 2);
       }).catch(() => {});
       this.refreshCompactTextareas();
       return;
@@ -288,7 +324,6 @@ Object.assign(UI, {
       this.renderInsights();
       this.renderCashflowStrip();
       this.renderGoals();
-      this.renderGoalsPanelState();
       this.renderAnalyticsBreakdownLegend();
       this.renderPaymentCalendar();
       this.renderHeatmap();
@@ -300,13 +335,6 @@ Object.assign(UI, {
         }
         this.renderCharts();
       }).catch(() => {});
-      return;
-    }
-
-    if (tabId === "tagsTab") {
-      this.renderTagStats();
-      this.renderTagCatalog();
-      this.renderTagGroups();
       return;
     }
 
@@ -336,7 +364,6 @@ Object.assign(UI, {
     this.renderTemplateCategories();
     this.renderCategoryColorValue();
     this.renderGoalColorValue();
-    this.renderTagColorValue();
     this.syncGoalModeFields();
     this.renderFilterCategories();
     this.renderPicker();

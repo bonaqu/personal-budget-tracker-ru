@@ -12,14 +12,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
-  .tags-layout {
-    grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr) !important;
-  }
-
-  .tag-detail-card__metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-
   .analytics-grid {
     grid-template-columns: minmax(0, 1.02fr) minmax(320px, 0.98fr) !important;
   }
@@ -38,44 +30,6 @@
       "journal" !important;
   }
 
-  .tags-layout {
-    grid-template-columns: 1fr !important;
-  }
-
-  .tag-detail__content {
-    grid-template-columns: 1fr !important;
-  }
-}
-
-/* Final tag catalog density polish */
-.tag-catalog-item {
-  min-height: 78px !important;
-  padding: 8px 12px 6px !important;
-}
-
-.tag-catalog-item__select,
-.tag-catalog-item__main {
-  gap: 7px !important;
-  align-content: start !important;
-}
-
-.tag-catalog-item__info {
-  gap: 0 !important;
-  align-content: start !important;
-}
-
-.tag-catalog-item__meta {
-  gap: 1px !important;
-}
-
-.tag-catalog-item__usage,
-.tag-catalog-item__note {
-  line-height: 1.2 !important;
-  min-height: 1.18em !important;
-}
-
-.tag-catalog-item__count {
-  margin-top: 0 !important;
 }
 
 /* Final responsive polish for Budget / Analytics / Months */
@@ -278,7 +232,6 @@
   .app-shell:not(.is-sidebar-collapsed) .overview-layout,
   .app-shell:not(.is-sidebar-collapsed) .budget-workspace,
   .app-shell:not(.is-sidebar-collapsed) .analytics-grid,
-  .app-shell:not(.is-sidebar-collapsed) .tags-layout,
   .app-shell:not(.is-sidebar-collapsed) .settings-layout {
     grid-template-columns: 1fr !important;
   }
@@ -303,8 +256,7 @@
 
   .app-shell:not(.is-sidebar-collapsed) .payment-calendar,
   .app-shell:not(.is-sidebar-collapsed) .payment-calendar-v2__shell,
-  .app-shell:not(.is-sidebar-collapsed) .analytics-breakdown,
-  .app-shell:not(.is-sidebar-collapsed) .tag-detail__content {
+  .app-shell:not(.is-sidebar-collapsed) .analytics-breakdown {
     grid-template-columns: 1fr !important;
   }
 
@@ -317,13 +269,11 @@
 
   .app-shell:not(.is-sidebar-collapsed) .settings-panel--quick,
   .app-shell:not(.is-sidebar-collapsed) .months-panel--detail,
-  .app-shell:not(.is-sidebar-collapsed) .tags-panel--detail,
   .app-shell:not(.is-sidebar-collapsed) .budget-workspace__side {
     min-height: 0 !important;
   }
 
   .app-shell:not(.is-sidebar-collapsed) .settings-quick-stats,
-  .app-shell:not(.is-sidebar-collapsed) .tag-detail-card__metrics,
   .app-shell:not(.is-sidebar-collapsed) .budget-side-panel,
   .app-shell:not(.is-sidebar-collapsed) .forecast-v3__metrics,
   .app-shell:not(.is-sidebar-collapsed) .forecast-v3__hero-side {
@@ -336,7 +286,6 @@
   .budget-workspace,
   .analytics-grid,
   .months-layout,
-  .tags-layout,
   .settings-layout {
     grid-template-columns: 1fr !important;
   }
@@ -362,8 +311,7 @@
   .payment-calendar,
   .payment-calendar-v2__shell,
   .analytics-breakdown,
-  .month-detail__body,
-  .tag-detail__content {
+  .month-detail__body {
     grid-template-columns: 1fr !important;
   }
 
@@ -371,7 +319,6 @@
   .month-overview-stats,
   .month-detail__hero,
   .settings-quick-stats,
-  .tag-detail-card__metrics,
   .budget-side-panel,
   .forecast-v3__metrics,
   .forecast-v3__hero-side {
@@ -384,7 +331,6 @@
   .month-overview-stats,
   .month-detail__hero,
   .settings-quick-stats,
-  .tag-detail-card__metrics,
   .budget-side-panel,
   .forecast-v3__metrics,
   .forecast-v3__hero-side,

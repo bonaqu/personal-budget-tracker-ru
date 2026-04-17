@@ -9,32 +9,32 @@ Object.assign(UI, {
       {
         label: "Прогноз расхода",
         value: Utils.formatMoney(current.burnRateProjection),
-        description: "Оценка трат к концу месяца при текущем темпе"
+        description: "Если сохранить текущий темп трат до конца месяца"
       },
       {
         label: "Средний чек",
         value: Utils.formatMoney(current.averageCheck),
-        description: "Средний размер расходной операции месяца"
+        description: "Средний размер одной расходной операции"
       },
       {
         label: "Доля регулярных",
         value: Utils.formatPercent(recurringShare),
-        description: "Часть расходов, похожих на подписки и повторяемые списания"
+        description: "Сколько в расходах занимают повторяющиеся платежи"
       },
       {
         label: "Изменение к прошлому месяцу",
         value: `${deltaExpense >= 0 ? "+" : ""}${Utils.formatPercent(Math.abs(deltaExpense))}`,
-        description: "Насколько изменились расходы относительно прошлого месяца"
+        description: "Как изменились расходы относительно прошлого месяца"
       },
       {
         label: "Доля долгов",
         value: Utils.formatPercent(debtShare),
-        description: "Часть расходов, ушедших на долги, кредиты и рассрочки"
+        description: "Сколько ушло на долги, кредиты и рассрочки"
       },
       {
         label: "Концентрация категории",
         value: Utils.formatPercent(current.concentration),
-        description: current.topCategory ? `Главная категория месяца: ${current.topCategory.name}` : "Появится после первых расходов"
+        description: current.topCategory ? `Главный драйвер расходов: ${current.topCategory.name}` : "Появится, как только появятся расходы"
       }
     ];
 
@@ -63,17 +63,17 @@ Object.assign(UI, {
 
     const cards = [
         {
-          label: "Самый прибыльный",
+          label: "Лучший месяц",
           value: bestNetMonth ? Utils.formatMoney(bestNetMonth.balance) : "0 ₽",
-          note: bestNetMonth ? bestNetMonth.label : "Пока нет месяцев"
+          note: bestNetMonth ? bestNetMonth.label : "Пока без данных"
         },
         {
-          label: "Самый расходный",
+          label: "Самый затратный",
         value: worstExpenseMonth ? Utils.formatMoney(worstExpenseMonth.expense) : "0 ₽",
-        note: worstExpenseMonth ? worstExpenseMonth.label : "Пока нет месяцев"
+        note: worstExpenseMonth ? worstExpenseMonth.label : "Пока без данных"
       },
       {
-        label: "Средний поток",
+        label: "Средний чистый поток",
         value: Utils.formatMoney(averageMonthlyFlow),
         note: `${current.operations} операций в текущем месяце`
       }
@@ -104,8 +104,8 @@ Object.assign(UI, {
     if (!goals.length) {
       const emptyCard = Utils.createElement("article", "goal-card goal-card--empty");
       emptyCard.append(
-        Utils.createElement("strong", "", "Пока нет финансовых целей"),
-        Utils.createElement("p", "goal-card__note", "Добавьте цель и отслеживайте прогресс накопления прямо во вкладке аналитики.")
+        Utils.createElement("strong", "", "Цели и копилки появятся здесь"),
+        Utils.createElement("p", "goal-card__note", "Добавьте цель, чтобы видеть прогресс накопления рядом с аналитикой месяца.")
       );
       fragment.appendChild(emptyCard);
     }
@@ -120,11 +120,9 @@ Object.assign(UI, {
       const meta = Utils.createElement(
         "small",
         "",
-        goal.mode === "tag"
-          ? `Накопление по тегу ${goal.tag || "#тег"}`
-          : goal.mode === "saved"
-            ? "Ручная накопленная сумма"
-            : "От остатка на конец месяца"
+        goal.mode === "saved"
+            ? "Считается вручную"
+            : "Считается от остатка месяца"
       );
       titleBox.append(title, meta);
       head.append(titleBox);
@@ -165,13 +163,12 @@ Object.assign(UI, {
     addTile.type = "button";
     addTile.dataset.action = "create-goal-inline";
     addTile.append(
-      Utils.createElement("strong", "", "+ Новая цель"),
-      Utils.createElement("span", "", "Создать копилку или финансовую цель")
+      Utils.createElement("strong", "", "+ Добавить цель"),
+      Utils.createElement("span", "", "Копилка, резерв или крупная покупка")
     );
     fragment.appendChild(addTile);
 
     root.appendChild(fragment);
-    this.renderGoalsPanelState();
   },
 
   renderForecast() {
@@ -179,46 +176,51 @@ Object.assign(UI, {
     if (!root) {
       return;
     }
+
     const forecast = Store.forecastNextMonth(Store.viewMonth);
+    const projectedNet = Utils.roundMoney(forecast.averageIncome - forecast.averageExpense);
     root.replaceChildren();
 
     const shell = Utils.createElement("div", "forecast-v3");
-    const hero = Utils.createElement("section", "forecast-v3__hero");
+    const content = Utils.createElement("section", "forecast-v3__content");
+    const main = Utils.createElement("section", "forecast-v3__main");
     const heroMain = Utils.createElement("article", "forecast-v3__hero-main");
     heroMain.append(
-      Utils.createElement("span", "forecast-v3__eyebrow", "Прогноз на конец следующего месяца"),
+      Utils.createElement("span", "forecast-v3__eyebrow", "\u041F\u0440\u043E\u0433\u043D\u043E\u0437 \u043D\u0430 \u043A\u043E\u043D\u0435\u0446 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0433\u043E \u043C\u0435\u0441\u044F\u0446\u0430"),
       Utils.createElement(
         "strong",
-        `forecast-v3__hero-value ${forecast.projectedFinal >= 0 ? "amount-positive" : "amount-negative"}`,
+`forecast-v3__hero-value ${forecast.projectedFinal >= 0 ? "amount-positive" : "amount-negative"}`,
         Utils.formatMoney(forecast.projectedFinal)
       ),
       Utils.createElement(
         "p",
         "forecast-v3__note",
-        `Прогноз основан на ${forecast.sampleSize} последних месяцах, среднем доходе/расходе и ритме обязательных списаний.`
+`\u041F\u0440\u043E\u0433\u043D\u043E\u0437 \u043E\u0441\u043D\u043E\u0432\u0430\u043D \u043D\u0430 ${forecast.sampleSize} \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0445 \u043C\u0435\u0441\u044F\u0446\u0430\u0445, \u0441\u0440\u0435\u0434\u043D\u0435\u043C \u0434\u043E\u0445\u043E\u0434\u0435/\u0440\u0430\u0441\u0445\u043E\u0434\u0435 \u0438 \u0440\u0438\u0442\u043C\u0435 \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0445 \u0441\u043F\u0438\u0441\u0430\u043D\u0438\u0439.`
       )
     );
 
-    const heroSide = Utils.createElement("div", "forecast-v3__hero-side");
+    const heroMeta = Utils.createElement("div", "forecast-v3__hero-meta");
     [
-      ["Безопасно потратить", Utils.formatMoney(forecast.safeSpend)],
-      ["Старт месяца", Utils.formatMoney(forecast.startingBalance)]
+      ["\u0421\u0442\u0430\u0440\u0442 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0433\u043E \u043C\u0435\u0441\u044F\u0446\u0430", Utils.formatMoney(forecast.startingBalance)],
+      ["\u0412\u044B\u0431\u043E\u0440\u043A\u0430", `${forecast.sampleSize} \u043C\u0435\u0441.`]
     ].forEach(([label, value]) => {
-      const chip = Utils.createElement("article", "forecast-v3__hero-chip");
-      chip.append(
+      const stat = Utils.createElement("article", "forecast-v3__hero-stat");
+      stat.append(
         Utils.createElement("span", "forecast-v3__eyebrow", label),
         Utils.createElement("strong", "", value)
       );
-      heroSide.appendChild(chip);
+      heroMeta.appendChild(stat);
     });
-    hero.append(heroMain, heroSide);
+    heroMain.appendChild(heroMeta);
 
     const metrics = Utils.createElement("div", "forecast-v3__metrics");
     [
-      ["Прогнозируемый доход", Utils.formatMoney(forecast.averageIncome)],
-      ["Прогнозируемый расход", Utils.formatMoney(forecast.averageExpense)],
-      ["Безопасно потратить", Utils.formatMoney(forecast.safeSpend)],
-      ["Старт следующего месяца", Utils.formatMoney(forecast.startingBalance)]
+      ["\u041F\u0440\u043E\u0433\u043D\u043E\u0437\u0438\u0440\u0443\u0435\u043C\u044B\u0439 \u0434\u043E\u0445\u043E\u0434", Utils.formatMoney(forecast.averageIncome)],
+      ["\u041F\u0440\u043E\u0433\u043D\u043E\u0437\u0438\u0440\u0443\u0435\u043C\u044B\u0439 \u0440\u0430\u0441\u0445\u043E\u0434", Utils.formatMoney(forecast.averageExpense)],
+      ["\u0427\u0438\u0441\u0442\u044B\u0439 \u043F\u043E\u0442\u043E\u043A \u043F\u0440\u043E\u0433\u043D\u043E\u0437\u0430", Utils.formatMoney(projectedNet)],
+      ["\u0420\u0435\u0433\u0443\u043B\u044F\u0440\u043D\u044B\u0435 \u0441\u043F\u0438\u0441\u0430\u043D\u0438\u044F", Utils.formatMoney(forecast.averageRecurring)],
+      ["\u0414\u043E\u043B\u0433\u0438 \u0438 \u043A\u0440\u0435\u0434\u0438\u0442\u044B", Utils.formatMoney(forecast.averageDebt)],
+      ["\u0411\u0435\u0437\u043E\u043F\u0430\u0441\u043D\u043E \u043F\u043E\u0442\u0440\u0430\u0442\u0438\u0442\u044C", Utils.formatMoney(forecast.safeSpend)]
     ].forEach(([label, value]) => {
       const card = Utils.createElement("article", "forecast-v3__metric");
       card.append(
@@ -231,56 +233,57 @@ Object.assign(UI, {
     const categories = Utils.createElement("section", "forecast-v3__categories");
     const categoriesCopy = Utils.createElement("div", "forecast-v3__categories-copy");
     categoriesCopy.append(
-      Utils.createElement("span", "forecast-v3__eyebrow", "Крупнейшие категории"),
-      Utils.createElement("strong", "forecast-v3__title", "На что уйдет основная часть расходов"),
+      Utils.createElement("span", "forecast-v3__eyebrow", "\u041A\u0440\u0443\u043F\u043D\u0435\u0439\u0448\u0438\u0435 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438"),
+      Utils.createElement("strong", "forecast-v3__title", "\u041D\u0430 \u0447\u0442\u043E \u0443\u0439\u0434\u0435\u0442 \u043E\u0441\u043D\u043E\u0432\u043D\u0430\u044F \u0447\u0430\u0441\u0442\u044C \u0440\u0430\u0441\u0445\u043E\u0434\u043E\u0432"),
       Utils.createElement(
         "p",
         "forecast-v3__categories-note",
         forecast.categoryForecast.length
-          ? "Категории с наибольшим вкладом в прогнозируемый расход следующего месяца."
-          : "Прогноз по категориям появится, когда накопится история трат."
+          ? "\u041A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438 \u0441 \u043D\u0430\u0438\u0431\u043E\u043B\u044C\u0448\u0438\u043C \u0432\u043A\u043B\u0430\u0434\u043E\u043C \u0432 \u043F\u0440\u043E\u0433\u043D\u043E\u0437\u0438\u0440\u0443\u0435\u043C\u044B\u0439 \u0440\u0430\u0441\u0445\u043E\u0434 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0433\u043E \u043C\u0435\u0441\u044F\u0446\u0430."
+          : "\u041F\u0440\u043E\u0433\u043D\u043E\u0437 \u043F\u043E \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044F\u043C \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u043D\u0430\u043A\u043E\u043F\u0438\u0442\u0441\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u044F \u0442\u0440\u0430\u0442."
       )
     );
 
     const list = Utils.createElement("div", "forecast-v3__list");
+    const visibleCategoryForecast = forecast.categoryForecast.slice(0, 6);
+    list.style.setProperty("--forecast-row-count", String(Math.max(1, visibleCategoryForecast.length)));
+    list.style.gridTemplateRows = `repeat(${Math.max(1, visibleCategoryForecast.length)}, minmax(0, 1fr))`;
     const totalCategoryAmount = forecast.categoryForecast.reduce((sum, item) => sum + item.amount, 0) || 1;
-    if (!forecast.categoryForecast.length) {
+    if (!visibleCategoryForecast.length) {
       list.appendChild(
         Utils.createElement(
           "div",
           "empty-state empty-state--compact",
-          "Прогноз по категориям появится, когда накопится история трат."
+          "\u041F\u0440\u043E\u0433\u043D\u043E\u0437 \u043F\u043E \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044F\u043C \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u043D\u0430\u043A\u043E\u043F\u0438\u0442\u0441\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u044F \u0442\u0440\u0430\u0442."
         )
       );
     } else {
-      forecast.categoryForecast.forEach((item) => {
+      visibleCategoryForecast.forEach((item) => {
         const row = Utils.createElement("div", "forecast-v3__row");
-        const main = Utils.createElement("div", "forecast-v3__row-main");
-        const label = Utils.createElement("span", "forecast-v3__row-name", item.category?.name || "Категория");
-        const share = Utils.createElement(
-          "span",
-          "forecast-v3__row-share",
-          `${Utils.formatPercent((item.amount / totalCategoryAmount) * 100)} расходов`
-        );
+        const mainRow = Utils.createElement("div", "forecast-v3__row-main");
+        const categoryName = item.category?.name || "\u041A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044F";
+        const shareText = `${Utils.formatPercent((item.amount / totalCategoryAmount) * 100)} \u0440\u0430\u0441\u0445\u043E\u0434\u043E\u0432`;
         const bar = Utils.createElement("span", "forecast-v3__bar");
         const fill = Utils.createElement("span", "forecast-v3__fill");
+        const barName = Utils.createElement("span", "forecast-v3__bar-name", categoryName);
+        const barLabel = Utils.createElement("span", "forecast-v3__bar-label", shareText);
         fill.style.width = `${Math.max(12, Math.min(100, (item.amount / totalCategoryAmount) * 100))}%`;
         fill.style.background = item.category?.color || "var(--info)";
-        bar.appendChild(fill);
-        main.append(label, share, bar);
+        bar.title = `${categoryName}: ${shareText}`;
+        bar.append(fill, barName, barLabel);
+        mainRow.append(bar);
         row.append(
-          main,
+          mainRow,
           Utils.createElement("strong", "", Utils.formatMoney(item.amount))
         );
         list.appendChild(row);
       });
     }
+
     categories.append(categoriesCopy, list);
-
-    const content = Utils.createElement("section", "forecast-v3__content");
-    content.append(metrics, categories);
-
-    shell.append(hero, content);
+    main.append(heroMain, metrics);
+    content.append(main, categories);
+    shell.append(content);
     root.appendChild(shell);
   },
   renderPaymentCalendar() {
@@ -314,15 +317,15 @@ Object.assign(UI, {
       Utils.createElement("strong", "", String(heavyDays)),
       Utils.createElement("span", "", "Крупных трат")
     );
-    overview.append(
+      overview.append(
       Utils.createElement("span", "payment-calendar-v2__eyebrow", Utils.monthLabel(Store.viewMonth)),
       Utils.createElement("strong", "", "Движение денег по дням"),
       Utils.createElement(
         "p",
         "",
         activeDays
-          ? "Выберите день в сетке, чтобы посмотреть движение денег и состав операций."
-          : "В этом месяце пока нет активных дней с операциями."
+          ? "Нажмите на день, чтобы увидеть поступления, траты и состав операций."
+          : "В этом месяце еще не было движения денег."
       ),
       overviewMeta
     );
@@ -389,11 +392,12 @@ Object.assign(UI, {
     if (!root) {
       return;
     }
-    const breakdown = Store.expenseBreakdown(Store.viewMonth).slice(0, 7);
+    const breakdown = Store.expenseBreakdown(Store.viewMonth);
     root.replaceChildren();
+    root.classList.toggle("is-scrollable", breakdown.length > 5);
 
     if (!breakdown.length) {
-      root.appendChild(Utils.createElement("div", "empty-state empty-state--compact", "Появится после первых расходов."));
+      root.appendChild(Utils.createElement("div", "empty-state empty-state--compact", "Появится, как только появятся первые расходы."));
       return;
     }
 
@@ -434,17 +438,15 @@ Object.assign(UI, {
     const peakDay = activeDays.reduce((best, item) => (item.amount > (best?.amount || 0) ? item : best), null);
     const totalSpend = activeDays.reduce((sum, item) => sum + item.amount, 0);
 
-    // Новый heatmap-v2 живет отдельно от старого heatmap-wrap,
-    // чтобы к нему не прилипали устаревшие grid-правила из прошлых итераций UI.
     root.className = "heatmap-v2";
     root.replaceChildren();
 
     const overview = Utils.createElement("article", "heatmap-v2__overview");
     const overviewMeta = Utils.createElement("div", "heatmap-v2__overview-meta");
     [
-      [String(activeDays.length), "Активных дней"],
-      [peakDay ? `День ${peakDay.day}` : "—", peakDay ? Utils.formatMoney(peakDay.amount) : "Пока без трат"],
-      [Utils.formatMoney(totalSpend), "Трат за месяц"]
+      [String(activeDays.length), "\u0410\u043A\u0442\u0438\u0432\u043D\u044B\u0445 \u0434\u043D\u0435\u0439"],
+      [peakDay ? `\u0414\u0435\u043D\u044C ${peakDay.day}` : "\u2014", peakDay ? Utils.formatMoney(peakDay.amount) : "\u041F\u043E\u043A\u0430 \u0431\u0435\u0437 \u0442\u0440\u0430\u0442"],
+      [Utils.formatMoney(totalSpend), "\u0422\u0440\u0430\u0442 \u0437\u0430 \u043C\u0435\u0441\u044F\u0446"]
     ].forEach(([value, note]) => {
       const stat = Utils.createElement("div", "heatmap-v2__overview-stat");
       stat.append(
@@ -455,52 +457,77 @@ Object.assign(UI, {
     });
     overview.append(
       Utils.createElement("span", "heatmap-v2__eyebrow", Utils.monthLabel(monthKey)),
-      Utils.createElement("strong", "", "Интенсивность трат"),
-      Utils.createElement("p", "", activeDays.length ? "Сетка показывает, в какие дни расходы были заметнее." : "После первых расходов здесь появится карта активности по дням."),
+      Utils.createElement("strong", "", "\u0418\u043D\u0442\u0435\u043D\u0441\u0438\u0432\u043D\u043E\u0441\u0442\u044C \u0442\u0440\u0430\u0442"),
+      Utils.createElement("p", "", activeDays.length ? "\u0421\u0435\u0442\u043A\u0430 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442, \u0432 \u043A\u0430\u043A\u0438\u0435 \u0434\u043D\u0438 \u0440\u0430\u0441\u0445\u043E\u0434\u044B \u0431\u044B\u043B\u0438 \u0437\u0430\u043C\u0435\u0442\u043D\u0435\u0435." : "\u041F\u043E\u0441\u043B\u0435 \u043F\u0435\u0440\u0432\u044B\u0445 \u0440\u0430\u0441\u0445\u043E\u0434\u043E\u0432 \u0437\u0434\u0435\u0441\u044C \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F \u043A\u0430\u0440\u0442\u0430 \u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0441\u0442\u0438 \u043F\u043E \u0434\u043D\u044F\u043C."),
       overviewMeta
     );
 
     const board = Utils.createElement("div", "heatmap-v2__board");
     const boardHead = Utils.createElement("div", "heatmap-v2__board-head");
     const nav = Utils.createElement("div", "heatmap-v2__nav");
-    const prevBtn = Utils.createElement("button", "icon-btn icon-btn--tiny heatmap-v2__nav-btn", "←");
+    const prevBtn = Utils.createElement("button", "icon-btn icon-btn--tiny heatmap-v2__nav-btn", "\u2190");
     prevBtn.type = "button";
     prevBtn.dataset.action = "shift-heatmap-month";
     prevBtn.dataset.delta = "-1";
-    prevBtn.title = "Предыдущий месяц";
-    const nextBtn = Utils.createElement("button", "icon-btn icon-btn--tiny heatmap-v2__nav-btn", "→");
+    prevBtn.title = "\u041F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0438\u0439 \u043C\u0435\u0441\u044F\u0446";
+    const nextBtn = Utils.createElement("button", "icon-btn icon-btn--tiny heatmap-v2__nav-btn", "\u2192");
     nextBtn.type = "button";
     nextBtn.dataset.action = "shift-heatmap-month";
     nextBtn.dataset.delta = "1";
-    nextBtn.title = "Следующий месяц";
+    nextBtn.title = "\u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u043C\u0435\u0441\u044F\u0446";
     nav.append(prevBtn, nextBtn);
     boardHead.append(Utils.createElement("span", "heatmap-v2__board-caption", Utils.shortMonthLabel(monthKey)), nav);
     const grid = Utils.createElement("div", "heatmap-v2__grid");
     days.forEach((item) => {
       const cell = Utils.createElement(
         "div",
-        `heatmap-v2__day${item.amount > 0 ? " has-activity" : ""}`
+`heatmap-v2__day${item.amount > 0 ? " has-activity" : ""}`
       );
       const intensity = max ? item.amount / max : 0;
       if (item.amount > 0) {
-        cell.style.background = Utils.cssRgb("--accent-rgb", (0.11 + intensity * 0.52).toFixed(3), `rgba(88, 166, 255, ${0.11 + intensity * 0.52})`);
-        cell.style.borderColor = Utils.cssRgb("--accent-rgb", 0.24, "rgba(88, 166, 255, 0.24)");
+        const hue = Math.round(204 - intensity * 18);
+        const saturation = Math.round(26 + intensity * 32);
+        const lightness = Math.round(18 + intensity * 16);
+        const alpha = 0.14 + intensity * 0.34;
+        const topColor = `hsla(${hue}, ${Math.min(58, saturation + 10)}%, ${Math.min(46, lightness + 8)}%, ${Math.min(0.56, alpha + 0.1).toFixed(3)})`;
+        const bottomColor = `hsla(${Math.max(176, hue - 10)}, ${saturation}%, ${lightness}%, ${alpha.toFixed(3)})`;
+        const borderColor = `hsla(${hue}, ${Math.min(62, saturation + 8)}%, ${Math.min(50, lightness + 8)}%, ${(0.18 + intensity * 0.2).toFixed(3)})`;
+        const glowColor = `hsla(${hue}, ${Math.min(56, saturation + 6)}%, ${Math.min(48, lightness + 6)}%, ${(0.05 + intensity * 0.08).toFixed(3)})`;
+        cell.style.background = `linear-gradient(180deg, ${topColor} 0%, ${bottomColor} 100%)`;
+        cell.style.borderColor = borderColor;
+        cell.style.boxShadow = `inset 0 0 0 1px ${borderColor}, 0 0 6px ${glowColor}`;
       }
-      cell.title = `День ${item.day}: ${item.amount ? Utils.formatMoney(item.amount) : "0 ₽"}`;
+      cell.title = `\u0414\u0435\u043D\u044C ${item.day}: ${item.amount ? Utils.formatMoney(item.amount) : "0 \u20BD"}`;
 
       const dayLabel = Utils.createElement("span", "heatmap-v2__day-num", String(item.day));
       const amountLabel = Utils.createElement(
         "strong",
         "heatmap-v2__day-amount",
-        item.amount ? Utils.formatMoney(item.amount) : "—"
+        item.amount ? Utils.formatMoney(item.amount) : "\u2014"
       );
       cell.append(dayLabel, amountLabel);
       grid.appendChild(cell);
     });
-    board.append(boardHead, grid);
+    const hint = Utils.createElement("button", "heatmap-v2__hint", "\u24D8");
+    const hintBubble = Utils.createElement("div", "heatmap-v2__hint-bubble");
+    const hintText = "\u0427\u0435\u043C \u044F\u0440\u0447\u0435 \u044F\u0447\u0435\u0439\u043A\u0430, \u0442\u0435\u043C \u0431\u043E\u043B\u044C\u0448\u0435 \u0431\u044B\u043B\u043E \u0442\u0440\u0430\u0442 \u0432 \u044D\u0442\u043E\u0442 \u0434\u0435\u043D\u044C. \u0427\u0435\u043C \u0431\u043B\u0435\u0434\u043D\u0435\u0435 \u044F\u0447\u0435\u0439\u043A\u0430, \u0442\u0435\u043C \u043C\u0435\u043D\u044C\u0448\u0435 \u0431\u044B\u043B\u043E \u0442\u0440\u0430\u0442 \u0432 \u044D\u0442\u043E\u0442 \u0434\u0435\u043D\u044C.";
+    hint.type = "button";
+    hint.dataset.action = "toggle-heatmap-hint";
+    hint.dataset.tooltip = hintText;
+    hint.setAttribute("aria-label", "\u041A\u0430\u043A \u0447\u0438\u0442\u0430\u0442\u044C \u0442\u0435\u043F\u043B\u043E\u0432\u0443\u044E \u043A\u0430\u0440\u0442\u0443");
+    hint.setAttribute("aria-expanded", "false");
+    hint.setAttribute("aria-pressed", "false");
+    hint.setAttribute("aria-controls", "heatmapHintBubble");
+    hintBubble.id = "heatmapHintBubble";
+    hintBubble.textContent = hintText;
+    hintBubble.setAttribute("role", "note");
+    hintBubble.hidden = true;
+    board.append(boardHead, grid, hint, hintBubble);
     root.append(overview, board);
+    if (typeof UI !== "undefined" && typeof UI.setHeatmapHintOpen === "function") {
+      UI.setHeatmapHintOpen(false);
+    }
   },
-
   renderRecurring() {
     const root = Utils.$("recurringList");
     if (!root) {

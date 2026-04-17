@@ -13,6 +13,8 @@ worker_new.js
 output/
 .playwright-mcp/
 node_modules/
+playwright-report/
+test-results/
 _serve_out.txt
 _serve_err.txt
 _*.py

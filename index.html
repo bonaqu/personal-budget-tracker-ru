@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0b0f14">
-  <meta name="description" content="Personal Budget Tracker для России: доходы, расходы, шаблоны, избранное, вишлист и аналитика по месяцам.">
+  <meta name="description" content="Personal Budget Tracker для России: доходы, расходы, быстрые сценарии, цели и аналитика по месяцам.">
   <title>Personal Budget Tracker</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='bg' x1='3' y1='2' x2='21' y2='22' gradientUnits='userSpaceOnUse'%3E%3Cstop stop-color='%23465360'/%3E%3Cstop offset='0.56' stop-color='%23273342'/%3E%3Cstop offset='1' stop-color='%2317232d'/%3E%3C/linearGradient%3E%3ClinearGradient id='acc' x1='16.45' y1='6' x2='16.45' y2='18.1' gradientUnits='userSpaceOnUse'%3E%3Cstop stop-color='%238ab7ff'/%3E%3Cstop offset='1' stop-color='%235dbe6b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='1.5' y='1.5' width='21' height='21' rx='6.75' fill='url(%23bg)' stroke='rgba(255,255,255,0.16)'/%3E%3Crect x='5.1' y='11' width='2.5' height='7.1' rx='1.25' fill='%23f3f8fc'/%3E%3Crect x='10.15' y='8.7' width='2.5' height='9.4' rx='1.25' fill='%23dce9fb'/%3E%3Crect x='15.2' y='6' width='2.5' height='12.1' rx='1.25' fill='url(%23acc)'/%3E%3Cpath d='M4.8 13.9L8 11.25L11 12.45L16.75 7.15' stroke='%23f4fbff' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='16.75' cy='7.15' r='1.25' fill='%238ab7ff'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles/00-foundation.css">
   <link rel="stylesheet" href="styles/10-foundation-responsive.css">
   <link rel="stylesheet" href="styles/20-analytics.css">
-  <link rel="stylesheet" href="styles/30-tags.css">
   <link rel="stylesheet" href="styles/40-months.css">
   <link rel="stylesheet" href="styles/50-settings.css">
   <link rel="stylesheet" href="styles/60-budget.css">
@@ -31,7 +31,7 @@
   <script src="scripts/07-ui-shell.js" defer></script>
   <script src="scripts/08-ui-budget-settings.js" defer></script>
   <script src="scripts/09-ui-analytics.js" defer></script>
-  <script src="scripts/10-ui-tags-months.js" defer></script>
+  <script src="scripts/10-ui-months.js" defer></script>
   <script src="scripts/11-ui-rendering.js" defer></script>
   <script src="scripts/12-app-bootstrap.js" defer></script>
 </head>
@@ -46,14 +46,31 @@
     <div class="auth-shell-card glass-card">
       <div class="auth-shell-card__intro">
         <div class="auth-brand">
-          <div class="brand-mark" aria-hidden="true">
-            <span class="brand-mark__bar brand-mark__bar--sm"></span>
-            <span class="brand-mark__bar brand-mark__bar--md"></span>
-            <span class="brand-mark__bar brand-mark__bar--lg"></span>
+          <div class="auth-brand__lockup">
+            <div class="brand-mark brand-mark--hero" aria-hidden="true">
+              <svg class="brand-mark__glyph" viewBox="0 0 64 64" fill="none">
+                <defs>
+                  <linearGradient id="brandMarkAccent" x1="46" y1="14" x2="46" y2="48" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#8AB7FF"></stop>
+                    <stop offset="1" stop-color="#5DBE6B"></stop>
+                  </linearGradient>
+                </defs>
+                <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--low" x="14" y="30" width="8" height="18" rx="4"></rect>
+                <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--mid" x="28" y="22" width="8" height="26" rx="4"></rect>
+                <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--high" x="42" y="14" width="8" height="34" rx="4"></rect>
+                <path class="brand-mark__glyph-trend" d="M14 38.5L23.8 30.6L32.2 34.15L46.6 20.2"></path>
+                <circle class="brand-mark__glyph-node" cx="46.6" cy="20.2" r="3.2"></circle>
+              </svg>
+            </div>
+            <div class="auth-brand__copy">
+              <h1>Personal Budget Tracker</h1>
+              <p class="auth-brand__subtitle">Управляйте личным бюджетом без лишней рутины</p>
+            </div>
           </div>
-          <div class="auth-brand__copy">
-            <h1>Personal Budget Tracker</h1>
-            <p class="auth-brand__subtitle">Сервис для ведения личного бюджета</p>
+          <div class="auth-brand__pills" aria-label="Преимущества сервиса">
+            <span class="auth-brand__pill">Журнал операций</span>
+            <span class="auth-brand__pill">Аналитика по месяцам</span>
+            <span class="auth-brand__pill">Хранение данных в облаке</span>
           </div>
         </div>
       </div>
@@ -72,8 +89,7 @@
                   <circle cx="12" cy="8.5" r="3.25"></circle>
                 </svg>
               </span>
-              <input id="startupLogin" type="text" autocomplete="username" placeholder=" " required aria-describedby="startupLoginHint startupAuthStatus">
-              <span class="auth-field__floating">Логин</span>
+              <input id="startupLogin" type="text" autocomplete="username" placeholder="Логин" required aria-describedby="startupLoginHint startupAuthStatus">
             </span>
             <span class="auth-field__hint" id="startupLoginHint">Например, ivanov32</span>
           </label>
@@ -86,8 +102,7 @@
                   <path d="M8 10.5V8.5C8 6.29086 9.79086 4.5 12 4.5C14.2091 4.5 16 6.29086 16 8.5V10.5"></path>
                 </svg>
               </span>
-              <input id="startupPassword" type="password" autocomplete="current-password" placeholder=" " required aria-describedby="startupPasswordHint startupAuthStatus">
-              <span class="auth-field__floating">Пароль</span>
+              <input id="startupPassword" type="password" autocomplete="current-password" placeholder="Пароль" required aria-describedby="startupPasswordHint startupAuthStatus">
               <button class="password-field__toggle" type="button" data-password-toggle="startupPassword" aria-label="Показать или скрыть пароль">Показать</button>
             </span>
             <span class="auth-field__hint" id="startupPasswordHint">Введите пароль</span>
@@ -114,9 +129,19 @@
 
             <div class="sidebar__brand">
               <div class="brand-mark" aria-hidden="true">
-                <span class="brand-mark__bar brand-mark__bar--sm"></span>
-                <span class="brand-mark__bar brand-mark__bar--md"></span>
-                <span class="brand-mark__bar brand-mark__bar--lg"></span>
+                <svg class="brand-mark__glyph" viewBox="0 0 64 64" fill="none">
+                  <defs>
+                    <linearGradient id="brandMarkAccent" x1="46" y1="14" x2="46" y2="48" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#8AB7FF"></stop>
+                      <stop offset="1" stop-color="#5DBE6B"></stop>
+                    </linearGradient>
+                  </defs>
+                  <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--low" x="14" y="30" width="8" height="18" rx="4"></rect>
+                  <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--mid" x="28" y="22" width="8" height="26" rx="4"></rect>
+                  <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--high" x="42" y="14" width="8" height="34" rx="4"></rect>
+                  <path class="brand-mark__glyph-trend" d="M14 38.5L23.8 30.6L32.2 34.15L46.6 20.2"></path>
+                  <circle class="brand-mark__glyph-node" cx="46.6" cy="20.2" r="3.2"></circle>
+                </svg>
               </div>
               <div class="sidebar__brand-copy">
                 <h1>Personal Budget Tracker</h1>
@@ -174,15 +199,6 @@
               </span>
               <span class="sidebar-nav__label">Аналитика</span>
             </button>
-            <button class="tabbar__btn" data-tab-target="tagsTab" type="button">
-              <span class="sidebar-nav__icon sidebar-nav__icon--tag" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M7 7.5H13.5L19 13L13.5 18.5H7L2.5 13L7 7.5Z"></path>
-                  <circle cx="8.75" cy="10.75" r="1"></circle>
-                </svg>
-              </span>
-              <span class="sidebar-nav__label">Теги</span>
-            </button>
             <button class="tabbar__btn" data-tab-target="monthsTab" type="button">
               <span class="sidebar-nav__icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
@@ -214,8 +230,9 @@
               <span class="sync-pill__dot" id="syncDot"></span>
             </span>
             <div class="sync-pill__text">
-              <strong id="syncTitle">Локальный режим</strong>
-              <span id="syncSubtitle">Данные хранятся в браузере</span>
+              <strong id="syncTitle">На этом устройстве</strong>
+              <span id="syncSubtitle">Бюджет хранится в браузере</span>
+              <span class="sync-pill__meta" id="syncMetaNote">Подключите аккаунт, чтобы включить облако</span>
             </div>
           </div>
 
@@ -243,6 +260,23 @@
       </div>
     </aside>
 
+    <div class="mobile-sidebar-backdrop" id="mobileSidebarBackdrop" data-action="close-mobile-drawer" hidden></div>
+    <div class="mobile-topbar" id="mobileTopbar">
+      <button class="mobile-nav-toggle icon-btn" id="mobileNavToggleBtn" type="button" data-action="toggle-mobile-drawer" aria-label="Открыть навигацию" aria-expanded="false">
+        <span class="mobile-nav-toggle__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M5 7.5H19"></path>
+            <path d="M5 12H19"></path>
+            <path d="M5 16.5H19"></path>
+          </svg>
+        </span>
+      </button>
+      <div class="mobile-topbar__copy" aria-hidden="true">
+        <span class="mobile-topbar__eyebrow">Раздел</span>
+        <strong class="mobile-topbar__title" id="mobileTopbarTitle">Бюджет</strong>
+      </div>
+    </div>
+
     <main class="page-grid">
       <section class="tab-panel is-active" id="overviewTab">
         <div class="hero-strip glass-card hero-strip--compact">
@@ -254,7 +288,7 @@
                   <h2 id="activeMonthLabel">Март 2026</h2>
                   <span class="hero-strip__badge">Живой журнал</span>
                 </div>
-                <p class="hero-strip__caption" id="heroCaption">Операции текущего месяца, шаблоны, избранное и вишлист.</p>
+                <p class="hero-strip__caption" id="heroCaption">Операции месяца, быстрые сценарии и финансовые цели.</p>
               </div>
 
               <div class="hero-strip__period">
@@ -283,9 +317,9 @@
                 <span>Всего операций</span>
                 <strong id="historyOpsInline">0</strong>
               </div>
-              <div class="hero-fact hero-fact--month">
-                <span>Чистый поток месяца</span>
-                <strong id="monthNetInline">0 ₽</strong>
+              <div class="hero-fact hero-fact--spotlight">
+                <span>Крупнейшая трата</span>
+                <strong id="monthTopExpenseInline">0 ₽</strong>
               </div>
               <div class="hero-fact hero-fact--final">
                 <span>Остаток на конец</span>
@@ -312,7 +346,7 @@
             <div class="month-balance-toolbar">
               <label class="month-balance-field" for="monthStartInput">
                 <span class="month-balance-label">Начальный остаток</span>
-                <input id="monthStartInput" class="month-balance-input" type="number" min="0" step="0.01" placeholder="Авто: 0">
+                <input id="monthStartInput" class="month-balance-input" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="Авто: 0">
               </label>
 
               <label class="month-balance-toggle" for="manualStartCheck">
@@ -355,7 +389,6 @@
                   <span class="mini-label">График</span>
                   <strong>Изменение баланса по дням</strong>
                 </div>
-                <button class="btn btn--ghost btn--compact" id="monthTrendToggleBtn" type="button" aria-controls="monthTrendShell" aria-expanded="false">Развернуть график</button>
               </div>
               <div class="month-trend-preview" id="monthTrendPreview">
                 <div class="month-trend-preview__item">
@@ -371,6 +404,7 @@
                   <strong id="monthTrendPreviewFinal">0 ₽</strong>
                 </div>
               </div>
+              <div class="month-balance-legend" id="monthBalanceLegend" aria-hidden="true"></div>
               <div class="chart-wrap chart-wrap--trend-balance">
                 <canvas id="monthBalanceChart"></canvas>
               </div>
@@ -382,7 +416,25 @@
 
           <aside class="budget-workspace__side">
             <article class="panel glass-card budget-side-panel">
-              <section class="budget-side-panel__section budget-side-panel__section--snapshot">
+              <div class="budget-side-panel__pager" id="budgetSidePager" hidden aria-hidden="true">
+                <div class="budget-side-panel__pager-copy">
+                  <span class="budget-side-panel__pager-index" id="budgetSidePagerIndex">1 / 3</span>
+                </div>
+                <div class="budget-side-panel__pager-actions">
+                  <button class="icon-btn budget-side-panel__pager-btn" id="budgetSidePrevBtn" type="button" data-action="budget-side-prev" aria-label="Предыдущая панель">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M14.5 6.5L9 12L14.5 17.5"></path>
+                    </svg>
+                  </button>
+                  <button class="icon-btn budget-side-panel__pager-btn" id="budgetSideNextBtn" type="button" data-action="budget-side-next" aria-label="Следующая панель">
+                    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M9.5 6.5L15 12L9.5 17.5"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="budget-side-panel__pages">
+              <section class="budget-side-panel__section budget-side-panel__section--snapshot" data-budget-side-page="snapshot">
                 <div class="budget-side-panel__title">
                   <p class="eyebrow">Сводка</p>
                   <h3>Быстрый срез месяца</h3>
@@ -391,38 +443,59 @@
           <article class="summary-card summary-card--income">
             <span>Доходы месяца</span>
             <strong id="incomeTotal">0 ₽</strong>
-            <small id="incomeHint">Поступления активного месяца</small>
+            <small id="incomeHint">Поступления выбранного месяца</small>
           </article>
 
           <article class="summary-card summary-card--expense">
             <span>Расходы месяца</span>
             <strong id="expenseTotal">0 ₽</strong>
-            <small id="expenseHint">Списания активного месяца</small>
+            <small id="expenseHint">Списания выбранного месяца</small>
           </article>
 
           <article class="summary-card summary-card--net">
             <span>Чистый поток</span>
             <strong id="netTotal">0 ₽</strong>
-            <small id="netHint">Доходы минус расходы</small>
+            <small id="netHint">Доходы минус траты</small>
           </article>
 
           <article class="summary-card summary-card--rate">
             <span>Норма накопления</span>
             <strong id="savingsRate">0%</strong>
-            <small id="savingsHint">Доля дохода после трат</small>
+            <small id="savingsHint">Осталось после трат</small>
+          </article>
+
+          <article class="summary-card summary-card--ops">
+            <span>Операций в месяце</span>
+            <strong id="monthOpsTotal">0</strong>
+            <small id="monthOpsHint">Строк в журнале месяца</small>
+          </article>
+
+          <article class="summary-card summary-card--avg">
+            <span>Средний чек</span>
+            <strong id="averageCheckTotal">0 ₽</strong>
+            <small id="averageCheckHint">Средняя трата на расход</small>
           </article>
         </section>
               </section>
 
-              <section class="budget-side-panel__section budget-side-panel__section--focus">
+              <section class="budget-side-panel__section budget-side-panel__section--focus" data-budget-side-page="focus">
                 <div class="budget-side-panel__title">
                   <p class="eyebrow">Фокус расходов</p>
                   <h3>Главные категории месяца</h3>
                 </div>
                 <div class="budget-expense-focus" id="overviewCategoryLegend"></div>
               </section>
+
+              <section class="budget-side-panel__section budget-side-panel__section--limits" data-budget-side-page="limits">
+                <div class="budget-side-panel__title">
+                  <p class="eyebrow">Лимиты</p>
+                  <h3>Контроль категорий</h3>
+                </div>
+                <div class="budget-limit-list" id="budgetLimitList"></div>
+              </section>
+              </div>
             </article>
-          </aside>
+            </aside>
 
           <div class="budget-workspace__journal">
             <section class="journal-layout journal-layout--budget">
@@ -440,7 +513,7 @@
                     <div class="budget-filter-shell__head">
                       <div>
                         <p class="eyebrow">Поиск и фильтры</p>
-                        <h4>По операциям и тегам</h4>
+                        <h4>По операциям и категориям</h4>
                       </div>
                       <button class="btn btn--ghost btn--compact" id="budgetFilterToggleBtn" type="button" aria-controls="budgetFilterBody" aria-expanded="false">Развернуть</button>
                     </div>
@@ -460,7 +533,7 @@
                                 <path d="M15 15L20 20"></path>
                               </svg>
                             </span>
-                            <input id="searchInput" type="search" placeholder="Описание, категория или тег">
+                            <input id="searchInput" type="search" placeholder="Описание, категория или сумма">
                           </div>
                         </label>
                       </div>
@@ -517,6 +590,9 @@
                 <section class="journal-section">
                   <div class="journal-section__head">
                     <h4>💵 Доходы</h4>
+                    <div class="section-actions">
+                      <button class="btn btn--ghost btn--compact" id="loadIncomeTemplateBtn" type="button">Из шаблона доходов</button>
+                    </div>
                   </div>
                   <div class="entry-list" id="incomesList"></div>
                   <div class="journal-section__foot">
@@ -526,7 +602,10 @@
 
                 <section class="journal-section">
                   <div class="journal-section__head">
-                    <h4>🏦 Долги</h4>
+                    <h4>🏦 Долговые обязательства</h4>
+                    <div class="section-actions">
+                      <button class="btn btn--ghost btn--compact" id="loadDebtTemplateBtn" type="button">Из шаблона долговых обязательств</button>
+                    </div>
                   </div>
                   <div class="entry-list" id="debtsList"></div>
                   <div class="journal-section__foot">
@@ -536,9 +615,9 @@
 
                 <section class="journal-section">
                   <div class="journal-section__head">
-                    <h4>🔁 Обязательные (ЖКХ+Моб + Инет)</h4>
+                    <h4>🔁 Регулярные платежи (ЖКХ + Моб + Инет + Подписки)</h4>
                     <div class="section-actions">
-                      <button class="btn btn--ghost btn--compact" id="loadTemplateBtn" type="button">Из шаблона</button>
+                      <button class="btn btn--ghost btn--compact" id="loadTemplateBtn" type="button">Из шаблона регулярных платежей</button>
                     </div>
                   </div>
                   <div class="entry-list" id="recurringBudgetList"></div>
@@ -586,15 +665,14 @@
                 <h3>На какие суммы вы копите</h3>
               </div>
             </div>
-            <button class="btn btn--ghost btn--compact is-hidden" id="goalPanelToggleBtn" type="button" aria-controls="goalList" aria-expanded="true">Свернуть</button>
             <div class="goal-list" id="goalList"></div>
           </article>
 
           <article class="panel glass-card analytics-panel analytics-panel--insights">
             <div class="panel__head">
               <div>
-                <p class="eyebrow">Аналитика</p>
-                <h3>Инсайты по бюджету</h3>
+                <p class="eyebrow">Главное</p>
+                <h3>Итоги месяца</h3>
               </div>
             </div>
             <div class="insight-grid" id="insightGrid"></div>
@@ -643,8 +721,9 @@
           <article class="panel glass-card analytics-panel analytics-panel--calendar">
             <div class="panel__head">
               <div>
-                <p class="eyebrow">Календарь платежей</p>
+                <p class="eyebrow">Календарь движения средств</p>
                 <h3>Дни доходов и крупных трат</h3>
+                <p class="analytics-panel__subtext">Выберите день в сетке, чтобы посмотреть движение средств и состав операций.</p>
               </div>
             </div>
             <div class="payment-calendar" id="paymentCalendar"></div>
@@ -677,46 +756,13 @@
         </div>
       </section>
 
-      <section class="tab-panel" id="tagsTab">
-        <div class="tags-layout">
-          <article class="panel glass-card tags-panel tags-panel--catalog">
-            <div class="panel__head panel__head--spread">
-              <div>
-                <p class="eyebrow">Теги</p>
-                <h3>Каталог и настройка</h3>
-              </div>
-              <button class="btn btn--primary btn--compact" id="createTagBtn" type="button">Новый тег</button>
-            </div>
-            <div class="tags-toolbar">
-              <label class="field field--search tags-search-field" for="tagSearchInput">
-                <span class="field__label">Поиск по тегам</span>
-                <input id="tagSearchInput" type="search" placeholder="Название, описание или связь с расходом">
-              </label>
-              <div class="tag-stats-grid tag-stats-grid--compact" id="tagStatsGrid"></div>
-            </div>
-            <div class="tag-catalog-list settings-scroll-list" id="tagCatalogList"></div>
-          </article>
-
-          <article class="panel glass-card tags-panel tags-panel--detail">
-            <div class="panel__head panel__head--spread">
-              <div>
-                <p class="eyebrow">Выбранный тег</p>
-                <h3 id="tagDetailTitle">Операции и связи</h3>
-              </div>
-              <div class="tag-detail-toolbar" id="tagDetailToolbar"></div>
-            </div>
-            <div class="tag-group-list" id="tagGroupList"></div>
-          </article>
-        </div>
-      </section>
-
       <section class="tab-panel" id="monthsTab">
         <div class="months-layout">
           <article class="panel glass-card months-panel months-panel--table">
             <div class="panel__head panel__head--spread">
               <div>
-                <p class="eyebrow">История по месяцам</p>
-                <h3>Обзор и сравнение</h3>
+                <p class="eyebrow">Архив месяцев</p>
+                <h3>Сравнение и динамика</h3>
               </div>
               <div class="month-overview-stats" id="monthsOverviewStats"></div>
             </div>
@@ -726,8 +772,8 @@
           <article class="panel glass-card months-panel months-panel--detail">
             <div class="panel__head panel__head--spread">
               <div>
-                <p class="eyebrow">Разбор месяца</p>
-                <h3 id="monthDetailTitle">Выберите месяц в таблице</h3>
+                <p class="eyebrow">Фокус месяца</p>
+                <h3 id="monthDetailTitle">Выберите месяц, чтобы открыть всю картину</h3>
               </div>
               <div class="month-detail-toolbar" id="monthDetailToolbar"></div>
             </div>
@@ -742,7 +788,7 @@
             <div class="panel__head panel__head--spread">
               <div>
                 <p class="eyebrow">Категории</p>
-                <h3>Редактирование и лимиты</h3>
+                <h3>Категории, лимиты и цвета</h3>
               </div>
               <button class="btn btn--primary btn--compact" id="openCategoryCreateBtn" type="button">Новая категория</button>
             </div>
@@ -754,13 +800,15 @@
             <div class="panel__head panel__head--spread">
               <div>
                 <p class="eyebrow">Быстрые сценарии</p>
-                <h3 id="settingsQuickTitle">Обязательные платежи</h3>
+                <h3 id="settingsQuickTitle">Сценарии, шаблоны и избранное</h3>
               </div>
-              <button class="btn btn--primary btn--compact" id="settingsQuickCreateBtn" type="button">Новый шаблон</button>
+              <button class="btn btn--primary btn--compact" id="settingsQuickCreateBtn" type="button">Новый сценарий</button>
             </div>
             <div class="settings-quick-toolbar">
               <div class="settings-quick-switch" role="group" aria-label="Быстрые сценарии">
-                <button class="settings-quick-switch__btn is-active" id="settingsQuickTemplatesBtn" type="button" data-settings-quick="template" aria-pressed="true" aria-controls="manageQuickList" aria-describedby="settingsQuickStatus">Шаблоны</button>
+                <button class="settings-quick-switch__btn is-active" id="settingsQuickTemplatesBtn" type="button" data-settings-quick="template-recurring" aria-pressed="true" aria-controls="manageQuickList" aria-describedby="settingsQuickStatus">Шаблоны регулярных платежей</button>
+                <button class="settings-quick-switch__btn" id="settingsQuickIncomeBtn" type="button" data-settings-quick="template-income" aria-pressed="false" aria-controls="manageQuickList" aria-describedby="settingsQuickStatus">Шаблоны доходов</button>
+                <button class="settings-quick-switch__btn" id="settingsQuickDebtBtn" type="button" data-settings-quick="template-debt" aria-pressed="false" aria-controls="manageQuickList" aria-describedby="settingsQuickStatus">Шаблоны долговых обязательств</button>
                 <button class="settings-quick-switch__btn" id="settingsQuickFavoritesBtn" type="button" data-settings-quick="favorite" aria-pressed="false" aria-controls="manageQuickList" aria-describedby="settingsQuickStatus">Избранное</button>
               </div>
               <div class="settings-quick-stats" id="settingsQuickStats"></div>
@@ -772,23 +820,160 @@
           <article class="panel glass-card settings-panel settings-panel--backup">
             <div class="panel__head">
               <div>
-                <p class="eyebrow">Импорт и экспорт</p>
-                <h3>Резервные копии JSON</h3>
+                <p class="eyebrow">Резервные копии и перенос</p>
+                <h3>Сохранение, перенос и восстановление</h3>
               </div>
             </div>
             <div class="backup-actions">
-              <button class="btn btn--secondary" id="exportBtn" type="button" aria-describedby="backupNote backupStatus">Экспортировать бэкап</button>
-              <button class="btn btn--ghost" id="importBtn" type="button" aria-describedby="backupNote backupStatus">Импортировать бэкап</button>
+              <button class="btn btn--secondary" id="exportBtn" type="button" aria-describedby="backupNote backupStatus">Скачать резервную копию</button>
+              <button class="btn btn--ghost" id="importBtn" type="button" aria-describedby="backupNote backupStatus">Загрузить резервную копию</button>
               <input id="importFileInput" type="file" accept="application/json" hidden>
             </div>
             <div class="settings-panel__status settings-panel__status--backup" id="backupStatus" role="status" aria-live="polite" aria-atomic="true" hidden></div>
             <div class="backup-note" id="backupNote">
-              Формат бэкапа совместим со структурой `settings + wishlist + YYYY-MM`.
+              Подойдет для резервной копии, переноса между устройствами и спокойного восстановления, если что-то пойдет не так.
             </div>
           </article>
         </div>
       </section>
     </main>
+
+    <div class="mobile-quick-sheet" id="mobileQuickSheet" hidden aria-hidden="true">
+      <div class="mobile-quick-sheet__head">
+        <div>
+          <p class="eyebrow">Быстрое добавление</p>
+          <h3>Что добавить в бюджет</h3>
+        </div>
+        <button class="icon-btn icon-btn--tiny mobile-quick-sheet__close" type="button" data-action="close-mobile-quick-add" aria-label="Закрыть быстрое меню">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <div class="mobile-quick-sheet__grid">
+        <button class="mobile-quick-sheet__action" type="button" data-action="mobile-quick-add" data-section="expenses">
+          <span class="mobile-quick-sheet__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <circle cx="9" cy="18.5" r="1.5"></circle>
+              <circle cx="17" cy="18.5" r="1.5"></circle>
+              <path d="M4.5 5.5H6.1L8 14H17.6L19.2 8.2H7.3"></path>
+            </svg>
+          </span>
+          <span class="mobile-quick-sheet__body">
+            <strong>Покупка</strong>
+            <small>Текущий расход</small>
+          </span>
+        </button>
+        <button class="mobile-quick-sheet__action" type="button" data-action="mobile-quick-add" data-section="incomes">
+          <span class="mobile-quick-sheet__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M12 18V6"></path>
+              <path d="M7.5 10.5L12 6L16.5 10.5"></path>
+            </svg>
+          </span>
+          <span class="mobile-quick-sheet__body">
+            <strong>Доход</strong>
+            <small>Новое поступление</small>
+          </span>
+        </button>
+        <button class="mobile-quick-sheet__action" type="button" data-action="mobile-quick-add" data-section="debts">
+          <span class="mobile-quick-sheet__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M12 6V18"></path>
+              <path d="M7.5 13.5L12 18L16.5 13.5"></path>
+              <path d="M6 5.5H18"></path>
+            </svg>
+          </span>
+          <span class="mobile-quick-sheet__body">
+            <strong>Долг</strong>
+            <small>Обязательство</small>
+          </span>
+        </button>
+        <button class="mobile-quick-sheet__action" type="button" data-action="mobile-quick-add" data-section="recurring">
+          <span class="mobile-quick-sheet__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M7.5 8H17"></path>
+              <path d="M17 8L14.5 5.5"></path>
+              <path d="M17 8L14.5 10.5"></path>
+              <path d="M16.5 16H7"></path>
+              <path d="M7 16L9.5 13.5"></path>
+              <path d="M7 16L9.5 18.5"></path>
+            </svg>
+          </span>
+          <span class="mobile-quick-sheet__body">
+            <strong>Регулярный</strong>
+            <small>Постоянный платеж</small>
+          </span>
+        </button>
+        <button class="mobile-quick-sheet__action" type="button" data-action="mobile-quick-add" data-section="wishlist">
+          <span class="mobile-quick-sheet__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M12 4.8L13.95 8.85L18.4 9.5L15.18 12.62L15.94 17.05L12 14.98L8.06 17.05L8.82 12.62L5.6 9.5L10.05 8.85L12 4.8Z"></path>
+            </svg>
+          </span>
+          <span class="mobile-quick-sheet__body">
+            <strong>Хотелка</strong>
+            <small>Новая цель</small>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <button class="mobile-fab" id="mobileFabBtn" type="button" data-action="toggle-mobile-quick-add" aria-label="Добавить строку в бюджет" aria-expanded="false">
+      <span class="mobile-fab__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 5V19"></path>
+          <path d="M5 12H19"></path>
+        </svg>
+      </span>
+    </button>
+
+    <nav class="mobile-bottom-nav" aria-label="Основные разделы">
+      <button class="tabbar__btn mobile-bottom-nav__btn is-active" data-tab-target="overviewTab" type="button" aria-label="Бюджет">
+        <span class="mobile-bottom-nav__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M7 6.5H18.5"></path>
+            <path d="M7 12H18.5"></path>
+            <path d="M7 17.5H18.5"></path>
+            <path d="M4.5 6.5H4.51"></path>
+            <path d="M4.5 12H4.51"></path>
+            <path d="M4.5 17.5H4.51"></path>
+          </svg>
+        </span>
+        <span class="mobile-bottom-nav__label">Бюджет</span>
+      </button>
+      <button class="tabbar__btn mobile-bottom-nav__btn" data-tab-target="analyticsTab" type="button" aria-label="Аналитика">
+        <span class="mobile-bottom-nav__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M5 19.5H19"></path>
+            <path d="M7.5 16V11"></path>
+            <path d="M12 16V7.5"></path>
+            <path d="M16.5 16V9"></path>
+          </svg>
+        </span>
+        <span class="mobile-bottom-nav__label">Аналитика</span>
+      </button>
+      <button class="tabbar__btn mobile-bottom-nav__btn" data-tab-target="monthsTab" type="button" aria-label="Месяцы">
+        <span class="mobile-bottom-nav__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="4.5" y="5.5" width="15" height="14" rx="3"></rect>
+            <path d="M8 3.75V7"></path>
+            <path d="M16 3.75V7"></path>
+            <path d="M4.5 9.5H19.5"></path>
+          </svg>
+        </span>
+        <span class="mobile-bottom-nav__label">Месяцы</span>
+      </button>
+      <button class="tabbar__btn mobile-bottom-nav__btn" data-tab-target="settingsTab" type="button" aria-label="Настройки">
+        <span class="mobile-bottom-nav__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M6 7.5H18"></path>
+            <path d="M6 16.5H18"></path>
+            <circle cx="9" cy="7.5" r="2"></circle>
+            <circle cx="15" cy="16.5" r="2"></circle>
+          </svg>
+        </span>
+        <span class="mobile-bottom-nav__label">Настройки</span>
+      </button>
+    </nav>
   </div>
 
   <div class="modal" id="authModal" aria-hidden="true">
@@ -798,6 +983,7 @@
       <div class="modal__head">
         <p class="eyebrow">Аккаунт</p>
         <h3>Вход или регистрация</h3>
+        <p class="modal__subtext">Подключите аккаунт, чтобы синхронизировать бюджет между устройствами и держать резервную копию под рукой.</p>
       </div>
 
         <form id="modalAuthForm" class="stack-form auth-form auth-form--modal" novalidate aria-describedby="modalAuthStatus">
@@ -809,8 +995,7 @@
                   <circle cx="12" cy="8.5" r="3.25"></circle>
                 </svg>
               </span>
-              <input id="modalLogin" type="text" autocomplete="username" placeholder=" " aria-describedby="modalLoginHint modalAuthStatus">
-              <span class="auth-field__floating">Логин</span>
+              <input id="modalLogin" type="text" autocomplete="username" placeholder="Логин" aria-describedby="modalLoginHint modalAuthStatus">
             </span>
             <span class="auth-field__hint" id="modalLoginHint">Введите логин</span>
           </label>
@@ -823,8 +1008,7 @@
                   <path d="M8 10.5V8.5C8 6.29086 9.79086 4.5 12 4.5C14.2091 4.5 16 6.29086 16 8.5V10.5"></path>
                 </svg>
               </span>
-              <input id="modalPassword" type="password" autocomplete="current-password" placeholder=" " aria-describedby="modalPasswordHint modalAuthStatus">
-              <span class="auth-field__floating">Пароль</span>
+              <input id="modalPassword" type="password" autocomplete="current-password" placeholder="Пароль" aria-describedby="modalPasswordHint modalAuthStatus">
               <button class="password-field__toggle" type="button" data-password-toggle="modalPassword" aria-label="Показать или скрыть пароль">Показать</button>
             </span>
             <span class="auth-field__hint" id="modalPasswordHint">Введите пароль</span>
@@ -847,25 +1031,43 @@
           <p class="eyebrow">Аккаунт</p>
           <button class="modal__close" type="button" data-close-modal="accountMenuModal" aria-label="Закрыть">×</button>
         </div>
-        <h3 id="accountMenuTitle">Сессия и синхронизация</h3>
-        <p class="modal__subtext" id="accountMenuSubtext">Сессия активна в текущем браузере.</p>
+        <h3 id="accountMenuTitle">Аккаунт и облако</h3>
+        <p class="modal__subtext" id="accountMenuSubtext">Здесь видно, где живет ваш бюджет, что уже ушло в облако и есть ли изменения только на этом устройстве.</p>
       </div>
-      <div class="account-menu">
-        <div class="account-menu__hero">
-          <div class="account-menu__identity">
-            <div class="account-menu__avatar" id="accountMenuAvatar" aria-hidden="true">A</div>
-            <div class="account-menu__identity-copy">
+        <div class="account-menu">
+          <div class="account-menu__hero">
+            <div class="account-menu__identity">
+              <div class="account-menu__avatar" id="accountMenuAvatar" aria-hidden="true">A</div>
+              <div class="account-menu__identity-copy">
               <strong id="accountMenuIdentity">Аккаунт</strong>
-              <span id="accountMenuMeta">Текущая сессия браузера</span>
+              <span id="accountMenuMeta">Статус бюджета и облака</span>
             </div>
+            </div>
+            <span class="account-menu__status" id="accountMenuStatus">Локально</span>
           </div>
-          <span class="account-menu__status" id="accountMenuStatus">Локально</span>
-        </div>
-        <div class="account-menu__state" id="accountMenuState">Состояние подключения</div>
-        <div class="account-menu__actions">
-          <button class="btn btn--primary btn--block" id="accountSyncNowBtn" type="button">Синхронизировать сейчас</button>
+        <div class="account-menu__state" id="accountMenuState">Кратко о состоянии бюджета</div>
+          <div class="account-menu__facts" aria-label="Сводка синхронизации">
+            <article class="account-menu__fact">
+              <span>Главный источник</span>
+              <strong id="accountMenuSource">Это устройство</strong>
+            </article>
+            <article class="account-menu__fact">
+              <span>Облако</span>
+              <strong id="accountMenuCloud">Не используется</strong>
+            </article>
+            <article class="account-menu__fact">
+              <span>Изменения на устройстве</span>
+              <strong id="accountMenuPending">Не требуется</strong>
+            </article>
+            <article class="account-menu__fact">
+              <span>Последняя отправка</span>
+              <strong id="accountMenuLastSync">—</strong>
+            </article>
+          </div>
+          <div class="account-menu__actions">
+            <button class="btn btn--primary btn--block" id="accountSyncNowBtn" type="button">Синхронизировать сейчас</button>
           <button class="btn btn--ghost btn--block" id="accountPasswordInfoBtn" type="button">Смена пароля</button>
-          <p class="account-menu__hint" id="accountPasswordHint">Смена пароля появится после поддержки отдельного endpoint в API.</p>
+          <p class="account-menu__hint" id="accountPasswordHint">Смену пароля добавим чуть позже.</p>
           <button class="btn btn--secondary btn--block" id="accountLogoutBtn" type="button">Выйти из аккаунта</button>
         </div>
       </div>
@@ -878,22 +1080,22 @@
       <button class="modal__close" type="button" data-close-modal="syncChoiceModal" aria-label="Закрыть">×</button>
       <div class="modal__head">
         <p class="eyebrow">Выбор источника</p>
-        <h3 id="syncChoiceTitle">Данные аккаунта</h3>
-        <p class="modal__subtext">Мы нашли и локальные данные, и данные в аккаунте. Выберите, что считать основным источником.</p>
+        <h3 id="syncChoiceTitle">Какую версию бюджета взять за основу</h3>
+        <p class="modal__subtext">Мы нашли данные и на этом устройстве, и в аккаунте. Выберите версию, с которой продолжим работу.</p>
       </div>
       <div class="account-choice">
         <article class="account-choice__card">
-          <strong>Оставить текущие данные</strong>
-          <p id="syncChoiceLocalSummary">Текущие локальные данные</p>
-          <button class="btn btn--primary btn--block" id="syncChoiceKeepLocalBtn" type="button">Оставить локальные и синхронизировать</button>
+          <strong>Оставить данные с устройства</strong>
+          <p id="syncChoiceLocalSummary">Данные, которые уже есть в этом браузере</p>
+          <button class="btn btn--primary btn--block" id="syncChoiceKeepLocalBtn" type="button">Оставить данные с устройства и продолжить</button>
         </article>
         <article class="account-choice__card">
-          <strong>Загрузить облачные данные</strong>
-          <p id="syncChoiceCloudSummary">Данные в аккаунте</p>
-          <button class="btn btn--secondary btn--block" id="syncChoiceUseCloudBtn" type="button">Заменить текущие данными из аккаунта</button>
+          <strong>Загрузить данные из облака</strong>
+          <p id="syncChoiceCloudSummary">Данные, которые уже сохранены в аккаунте</p>
+          <button class="btn btn--secondary btn--block" id="syncChoiceUseCloudBtn" type="button">Взять данные из облака</button>
         </article>
       </div>
-      <button class="btn btn--ghost btn--block" id="syncChoiceCancelBtn" type="button">Отменить вход и остаться локально</button>
+        <button class="btn btn--ghost btn--block" id="syncChoiceCancelBtn" type="button">Остаться на этом устройстве без входа</button>
     </div>
   </div>
 
@@ -925,7 +1127,7 @@
 
         <label class="field">
           <span class="field__label">Сумма</span>
-          <input id="editAmountInput" type="number" step="0.01" min="0">
+                <input id="editAmountInput" type="text" inputmode="decimal" autocomplete="off" spellcheck="false">
         </label>
 
         <label class="field">
@@ -944,11 +1146,6 @@
             <option value="recurring">Регулярный платеж</option>
             <option value="debt">Долг / кредит</option>
           </select>
-        </label>
-
-        <label class="field">
-          <span class="field__label">Теги</span>
-          <input id="editTagsInput" type="text" placeholder="#отпуск2026, #семья">
         </label>
 
         <label class="field">
@@ -1012,7 +1209,7 @@
 
         <label class="field">
           <span class="field__label">Лимит</span>
-          <input id="categoryLimitInput" type="number" step="0.01" min="0" placeholder="0 = без лимита">
+          <input id="categoryLimitInput" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="0 = без лимита">
         </label>
 
         <div class="auth-card__actions">
@@ -1034,7 +1231,7 @@
 
       <form id="templateForm" class="stack-form" novalidate>
         <input id="templateIdInput" type="hidden">
-        <input id="templateKindInput" type="hidden" value="template">
+        <input id="templateKindInput" type="hidden" value="template-recurring">
 
         <label class="field">
           <span class="field__label">Описание</span>
@@ -1043,7 +1240,7 @@
 
         <label class="field">
           <span class="field__label">Сумма</span>
-          <input id="templateAmountInput" type="number" step="0.01" min="0">
+          <input id="templateAmountInput" type="text" inputmode="decimal" autocomplete="off" spellcheck="false">
         </label>
 
         <label class="field" id="templateTypeField">
@@ -1072,11 +1269,6 @@
           </select>
         </label>
 
-        <div class="field field--note" id="templateTagsHintField">
-          <span class="field__label">Теги</span>
-          <div class="field__note" id="templateTagsHintText">После сохранения используйте кнопку «Теги» у карточки, чтобы быстро добавить или убрать метки.</div>
-        </div>
-
         <button class="btn btn--primary btn--block" type="submit" id="templateSubmitBtn">Сохранить шаблон</button>
       </form>
     </div>
@@ -1101,7 +1293,7 @@
 
         <label class="field">
           <span class="field__label">Нужная сумма</span>
-          <input id="goalTargetInput" type="number" step="0.01" min="0" placeholder="0">
+          <input id="goalTargetInput" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="0">
         </label>
 
         <label class="field">
@@ -1109,18 +1301,12 @@
           <select id="goalModeInput">
             <option value="balance">От остатка на конец месяца</option>
             <option value="saved">Ручная накопленная сумма</option>
-            <option value="tag">По транзакциям с тегом</option>
           </select>
         </label>
 
         <label class="field" id="goalSavedField">
           <span class="field__label">Уже отложено</span>
-          <input id="goalSavedInput" type="number" step="0.01" min="0" placeholder="0">
-        </label>
-
-        <label class="field is-hidden" id="goalTagField">
-          <span class="field__label">Тег для накопления</span>
-          <input id="goalTagInput" type="text" placeholder="#ноутбук2026">
+          <input id="goalSavedInput" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="0">
         </label>
 
         <div class="field">
@@ -1147,76 +1333,6 @@
     </div>
   </div>
 
-  <div class="modal" id="tagModal" aria-hidden="true">
-    <div class="modal__backdrop" data-close-modal="tagModal"></div>
-    <div class="modal__dialog glass-card modal__dialog--sm">
-      <button class="modal__close" type="button" data-close-modal="tagModal" aria-label="Закрыть">×</button>
-      <div class="modal__head">
-        <p class="eyebrow">Тег</p>
-        <h3 id="tagModalTitle">Новый тег</h3>
-      </div>
-
-      <form id="tagForm" class="stack-form" novalidate>
-        <input id="tagIdInput" type="hidden">
-
-        <label class="field">
-          <span class="field__label">Название</span>
-          <input id="tagNameInput" type="text" maxlength="32" placeholder="#отпуск2026">
-        </label>
-
-        <div class="field">
-          <span class="field__label">Цвет</span>
-          <div class="color-field">
-            <input id="tagColorInput" type="color" value="#58a6ff">
-            <div class="color-field__meta">
-              <strong id="tagColorValue">#58A6FF</strong>
-              <span>Используется для фишек тега и карточек аналитики</span>
-            </div>
-          </div>
-        </div>
-
-        <label class="field">
-          <span class="field__label">Описание</span>
-          <textarea id="tagNoteInput" rows="2" placeholder="Кратко: для каких операций нужен этот тег"></textarea>
-        </label>
-
-        <div class="auth-card__actions">
-          <button class="btn btn--primary btn--block" type="submit">Сохранить тег</button>
-          <button class="btn btn--ghost btn--block is-hidden" id="deleteTagBtn" type="button">Удалить тег</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <div class="modal" id="transactionTagsModal" aria-hidden="true">
-    <div class="modal__backdrop" data-close-modal="transactionTagsModal"></div>
-    <div class="modal__dialog glass-card modal__dialog--sm">
-      <button class="modal__close" type="button" data-close-modal="transactionTagsModal" aria-label="Закрыть">×</button>
-      <div class="modal__head">
-        <p class="eyebrow">Теги операции</p>
-        <h3 id="transactionTagsModalTitle">Настройка тегов</h3>
-        <p class="modal__subtext" id="transactionTagsModalSubtext">Теги помогают искать операции, собирать события и строить отдельную аналитику.</p>
-      </div>
-
-      <form id="transactionTagsForm" class="stack-form" novalidate>
-        <input id="transactionTagsIdInput" type="hidden">
-        <input id="transactionTagsTargetKindInput" type="hidden" value="transaction">
-
-        <label class="field">
-          <span class="field__label">Теги</span>
-          <input id="transactionTagsInput" type="text" placeholder="#семья, #отпуск2026">
-        </label>
-
-        <div class="field">
-          <span class="field__label">Быстрый выбор</span>
-          <div class="tag-chip-cloud" id="transactionTagsSuggestions"></div>
-        </div>
-
-        <button class="btn btn--primary btn--block" type="submit">Сохранить теги</button>
-      </form>
-    </div>
-  </div>
-
   <div class="modal" id="pickerModal" aria-hidden="true">
     <div class="modal__backdrop" data-close-modal="pickerModal"></div>
     <div class="modal__dialog glass-card modal__dialog--sm">
@@ -1237,19 +1353,45 @@
         <label><input type="radio" name="transactionType" value="expense" checked><span>Расход</span></label>
         <label><input type="radio" name="transactionType" value="income"><span>Доход</span></label>
       </div>
-      <input id="amountInput" type="number">
+      <input id="amountInput" type="text" inputmode="decimal" autocomplete="off" spellcheck="false">
       <input id="categoryInput" type="hidden">
       <select id="flowKindInput">
         <option value="standard">Обычный</option>
         <option value="recurring">Регулярный платеж</option>
         <option value="debt">Долг / кредит</option>
       </select>
-      <input id="tagsInput" type="text" placeholder="#покупка, #семья">
       <input id="dateInput" type="date">
       <textarea id="descriptionInput" rows="2"></textarea>
     </form>
   </template>
   <div id="transactionFormMount" hidden aria-hidden="true"></div>
+
+  <div class="budget-numpad" id="budgetAmountPad" hidden aria-hidden="true">
+    <div class="budget-numpad__value" id="budgetAmountPadValue">0</div>
+    <div class="budget-numpad__grid" role="group" aria-label="Цифровой блок для суммы">
+      <button class="budget-numpad__key" type="button" data-budget-numpad-key="7">7</button>
+      <button class="budget-numpad__key" type="button" data-budget-numpad-key="8">8</button>
+      <button class="budget-numpad__key" type="button" data-budget-numpad-key="9">9</button>
+      <button class="budget-numpad__key budget-numpad__key--action" type="button" data-budget-numpad-action="backspace" aria-label="Удалить последнюю цифру">←</button>
+      <button class="budget-numpad__key" type="button" data-budget-numpad-key="4">4</button>
+      <button class="budget-numpad__key" type="button" data-budget-numpad-key="5">5</button>
+      <button class="budget-numpad__key" type="button" data-budget-numpad-key="6">6</button>
+      <button class="budget-numpad__key budget-numpad__key--action" type="button" data-budget-numpad-action="clear" aria-label="Очистить сумму">C</button>
+      <button class="budget-numpad__key" type="button" data-budget-numpad-key="1">1</button>
+      <button class="budget-numpad__key" type="button" data-budget-numpad-key="2">2</button>
+      <button class="budget-numpad__key" type="button" data-budget-numpad-key="3">3</button>
+      <button class="budget-numpad__key budget-numpad__key--comma" type="button" data-budget-numpad-key=",">,</button>
+      <button class="budget-numpad__key budget-numpad__key--zero" type="button" data-budget-numpad-key="0">0</button>
+    </div>
+  </div>
+
+  <div class="budget-daypad" id="budgetDayPad" hidden aria-hidden="true">
+    <div class="budget-daypad__head">
+      <strong id="budgetDayPadTitle">Выберите день</strong>
+      <button class="budget-daypad__today" id="budgetDayPadTodayBtn" type="button" data-budget-day-action="today" hidden>Сегодня</button>
+    </div>
+    <div class="budget-daypad__grid" id="budgetDayPadGrid" role="group" aria-label="Выбор дня месяца"></div>
+  </div>
 
   <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>
 </body>

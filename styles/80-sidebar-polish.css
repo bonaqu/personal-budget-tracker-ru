@@ -60,41 +60,6 @@
   min-width: 16px !important;
 }
 
-.entry-row {
-  grid-template-columns: 64px 104px minmax(220px, 1fr) minmax(194px, 244px) minmax(144px, auto) !important;
-  gap: 12px !important;
-}
-
-.entry-field--actions {
-  min-width: max-content !important;
-  width: max-content !important;
-  justify-self: end !important;
-  padding-inline-start: 0 !important;
-}
-
-.entry-actions__buttons {
-  gap: 8px !important;
-}
-
-.entry-actions__buttons .icon-btn--row {
-  width: 40px !important;
-  height: 40px !important;
-}
-
-.entry-row--wishlist .entry-actions {
-  margin-top: 0 !important;
-  position: relative !important;
-  top: -4px !important;
-}
-
-@media (min-width: 1281px) {
-  .journal-section .entry-row:not(.entry-row--wishlist) .entry-actions {
-    margin-top: 0 !important;
-    position: relative !important;
-    top: -4px !important;
-  }
-}
-
 .goal-card__meta {
   gap: 8px !important;
 }
@@ -167,7 +132,6 @@
 }
 
 /* Final UX consistency pass */
-.tags-panel .panel__head--spread,
 .months-panel .panel__head--spread,
 .settings-panel .panel__head--spread {
   align-items: start !important;
@@ -178,12 +142,10 @@
   margin-bottom: 0 !important;
 }
 
-.tags-panel .panel__head--spread > div:first-child,
 .settings-panel .panel__head--spread > div:first-child {
   min-width: 0;
 }
 
-.tags-panel .panel__head--spread h3,
 .settings-panel .panel__head--spread h3,
 .months-panel .panel__head--spread h3 {
   line-height: 1.12;
@@ -194,9 +156,7 @@
 .month-overview-stat,
 .month-mini-stat,
 .month-table__result,
-.settings-mini-stat,
-.tag-stat-card,
-.tag-metric-card {
+.settings-mini-stat {
   min-width: 0 !important;
   display: grid !important;
   gap: 4px !important;
@@ -209,9 +169,7 @@
 .month-overview-stat,
 .month-mini-stat,
 .month-table__result,
-.settings-mini-stat,
-.tag-stat-card,
-.tag-metric-card {
+.settings-mini-stat {
   border: 1px solid var(--surface-border-soft) !important;
   background: var(--surface-card-soft) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
@@ -221,9 +179,7 @@
 .month-overview-stat__label,
 .month-mini-stat span,
 .month-table__result-label,
-.settings-mini-stat__label,
-.tag-stat-card__label,
-.tag-metric-card__label {
+.settings-mini-stat__label {
   color: var(--text-soft) !important;
   font-size: 0.68rem !important;
   font-weight: 700 !important;
@@ -236,9 +192,7 @@
 .month-overview-stat__value,
 .month-mini-stat strong,
 .month-table__result strong,
-.settings-mini-stat__value,
-.tag-stat-card__value,
-.tag-metric-card__value {
+.settings-mini-stat__value {
   min-width: 0 !important;
   font-size: 0.98rem !important;
   line-height: 1.22 !important;
@@ -253,13 +207,6 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.tag-stat-card__value,
-.tag-metric-card__value {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .settings-category-stats,
@@ -327,16 +274,6 @@
   font-size: 0.76rem;
 }
 
-.quick-card__tags {
-  min-height: 36px;
-  padding-top: 4px !important;
-  align-items: flex-start !important;
-}
-
-.quick-card__tag {
-  max-width: 100%;
-}
-
 .settings-panel--quick .panel__head,
 .settings-panel--quick .settings-quick-toolbar {
   min-height: 0;
@@ -377,12 +314,6 @@
 @media (max-width: 1280px) {
   .month-detail__body {
     grid-template-columns: 1fr !important;
-  }
-}
-
-@media (max-width: 1020px) {
-  .entry-row {
-    grid-template-columns: 74px 120px minmax(0, 1fr) !important;
   }
 }
 
@@ -442,17 +373,5 @@
     font-size: 0.72rem !important;
   }
 
-  .settings-panel--quick .quick-card__tags {
-    min-height: 32px !important;
-    padding-top: 2px !important;
-    gap: 6px !important;
-  }
-
-  .settings-panel--quick .quick-card__tag {
-    max-width: calc(50% - 3px);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
 }
 

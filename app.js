@@ -12,7 +12,7 @@
  *  - scripts/07-ui-shell.js
  *  - scripts/08-ui-budget-settings.js
  *  - scripts/09-ui-analytics.js
- *  - scripts/10-ui-tags-months.js
+ *  - scripts/10-ui-months.js
  *  - scripts/11-ui-rendering.js
  *  - scripts/12-app-bootstrap.js
  */

@@ -11,15 +11,36 @@ const UI = {
   flowChartSignature: "",
   categoryChartSignature: "",
   appliedTheme: "",
-  monthTrendCollapsed: true,
   budgetFiltersCollapsed: true,
-  goalsPanelCollapsed: false,
   analyticsAdvancedView: "deep",
   calendarSelectedDate: "",
   heatmapMonth: "",
-  tagsSearchQuery: "",
-  selectedTagName: "",
-  settingsQuickMode: "template",
+  heatmapHintOpen: false,
+  budgetNumpadState: {
+    open: false,
+    source: "journal",
+    itemId: "",
+    field: "",
+    targetId: "",
+    value: ""
+  },
+  budgetDayPadState: {
+    open: false,
+    itemId: "",
+    monthKey: "",
+    year: 0,
+    monthIndex: 0,
+    value: 1
+  },
+  budgetPointerActionGuard: null,
+  budgetFlowPending: null,
+  budgetSidePage: 0,
+  budgetRenderCache: {
+    summary: "",
+    monthPlan: ""
+  },
+  settingsQuickMode: "template-recurring",
+  settingsQuickScrollResetToken: 0,
   journalSectionSorts: {
     incomes: "date-desc",
     debts: "date-desc",
@@ -35,7 +56,8 @@ const UI = {
   modalFocusRestore: new Map(),
   dragState: {
     id: null,
-    section: null
+    section: null,
+    blocked: false
   },
 
   prefersReducedMotion() {
@@ -111,65 +133,11 @@ const UI = {
   },
 
   isOverviewChartVisible() {
-    return Store.activeTab === "overviewTab" && !this.monthTrendCollapsed;
+    return Store.activeTab === "overviewTab";
   },
 
   shouldRunChartResize() {
     return Store.activeTab === "analyticsTab" || this.isOverviewChartVisible();
-  },
-
-  toggleMonthTrend(forceValue = null) {
-    this.monthTrendCollapsed = forceValue === null ? !this.monthTrendCollapsed : Boolean(forceValue);
-    Storage.writeText(CONFIG.MONTH_TREND_KEY, this.monthTrendCollapsed ? "1" : "0");
-    this.renderMonthPlan();
-    this.scheduleChartResize();
-    if (Store.activeTab === "overviewTab") {
-      if (this.monthTrendCollapsed && this.charts.monthBalance) {
-        this.charts.monthBalance.destroy();
-        this.charts.monthBalance = null;
-      } else {
-        this.ensureChartsReady().then(() => {
-          if (this.isOverviewChartVisible()) {
-            this.renderMonthBalanceChart();
-          }
-        }).catch(() => {});
-      }
-    }
-  },
-
-  ensureGoalsPanelControls() {
-    const panel = Utils.$("goalsPanel");
-    const head = panel?.querySelector(".panel__head");
-    const toggle = Utils.$("goalPanelToggleBtn");
-    if (head && toggle && toggle.parentElement !== head) {
-      head.appendChild(toggle);
-      toggle.classList.remove("is-hidden");
-    }
-  },
-
-  toggleGoalsPanel(forceValue = null) {
-    this.goalsPanelCollapsed = forceValue === null ? !this.goalsPanelCollapsed : Boolean(forceValue);
-    Storage.writeText(CONFIG.GOALS_PANEL_KEY, this.goalsPanelCollapsed ? "1" : "0");
-    this.renderGoalsPanelState();
-  },
-
-  renderGoalsPanelState() {
-    this.ensureGoalsPanelControls();
-    const panel = Utils.$("goalsPanel");
-    const list = Utils.$("goalList");
-    const toggle = Utils.$("goalPanelToggleBtn");
-    if (panel) {
-      panel.classList.toggle("is-collapsed", this.goalsPanelCollapsed);
-    }
-    if (list) {
-      list.classList.toggle("is-collapsed", this.goalsPanelCollapsed);
-      list.hidden = this.goalsPanelCollapsed;
-      list.setAttribute("aria-hidden", String(this.goalsPanelCollapsed));
-    }
-    if (toggle) {
-      toggle.textContent = this.goalsPanelCollapsed ? "Развернуть" : "Свернуть";
-      toggle.setAttribute("aria-expanded", String(!this.goalsPanelCollapsed));
-    }
   },
 
   setAnalyticsAdvancedView(view) {
@@ -223,28 +191,179 @@ const UI = {
     this.renderColorFieldValue("goalColorInput", "goalColorValue");
   },
 
-  renderTagColorValue() {
-    this.renderColorFieldValue("tagColorInput", "tagColorValue");
-  },
-
-  setTagSearchQuery(value = "") {
-    this.tagsSearchQuery = String(value || "").trim();
-    if (Store.activeTab === "tagsTab") {
-      this.renderTagStats();
-      this.renderTagCatalog();
-      this.renderTagGroups();
+  resetSettingsQuickScroll(root = Utils.$("manageQuickList")) {
+    if (!(root instanceof HTMLElement)) {
+      return;
     }
+    let parent = root;
+    while (parent instanceof HTMLElement) {
+      if (parent.id === "settingsTab" || parent.matches(".settings-layout, .settings-panel--quick, .settings-quick-list")) {
+        parent.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
+        parent.scrollTop = 0;
+        parent.scrollLeft = 0;
+      }
+      if (parent.id === "settingsTab") {
+        break;
+      }
+      parent = parent.parentElement;
+    }
+    root.scrollTop = 0;
+    root.scrollLeft = 0;
+    root.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
   },
 
-  setSettingsQuickMode(mode = "template") {
-    const nextMode = mode === "favorite" ? "favorite" : "template";
+  rememberBudgetPointerAction(action = "", button = null) {
+    if (!(button instanceof HTMLElement) || !action) {
+      return;
+    }
+    this.budgetPointerActionGuard = {
+      action,
+      entryId: button.closest?.("[data-entry-id]")?.dataset?.entryId || "",
+      field: button.dataset?.numpadField || "",
+      targetId: button.dataset?.numpadTargetId || "",
+      expiresAt: Date.now() + 400
+    };
+  },
+
+  shouldSkipBudgetClickAction(action = "", button = null) {
+    const guard = this.budgetPointerActionGuard;
+    if (!guard || Date.now() > guard.expiresAt || !(button instanceof HTMLElement)) {
+      if (guard && Date.now() > guard.expiresAt) {
+        this.budgetPointerActionGuard = null;
+      }
+      return false;
+    }
+    const entryId = button.closest?.("[data-entry-id]")?.dataset?.entryId || "";
+    const field = button.dataset?.numpadField || "";
+    const targetId = button.dataset?.numpadTargetId || "";
+    const matches = guard.action === action
+      && guard.entryId === entryId
+      && guard.field === field
+      && guard.targetId === targetId;
+    if (matches) {
+      this.budgetPointerActionGuard = null;
+    }
+    return matches;
+  },
+
+  scheduleSettingsQuickScrollReset(frames = [0, 1, 3]) {
+    const token = Date.now();
+    this.settingsQuickScrollResetToken = token;
+    const runReset = () => {
+      if (this.settingsQuickScrollResetToken !== token || Store.activeTab !== "settingsTab") {
+        return;
+      }
+      this.resetSettingsQuickScroll();
+    };
+    const steps = Array.isArray(frames) ? frames : [frames];
+    steps.forEach((frame) => {
+      const nextFrame = Math.max(0, Number(frame) || 0);
+      if (nextFrame === 0) {
+        runReset();
+        return;
+      }
+      App.runAfterNextPaint(runReset, nextFrame);
+    });
+  },
+
+  setSettingsQuickMode(mode = "template-recurring") {
+    const nextMode = normalizeSettingsQuickMode(mode);
     this.settingsQuickMode = nextMode;
     try {
       sessionStorage.setItem("settingsQuickMode", nextMode);
     } catch {}
     if (Store.activeTab === "settingsTab") {
       this.renderQuickSettings();
-      UI.setSettingsStatus(nextMode === "favorite" ? "Показано избранное." : "Показаны шаблоны.", "info");
+      this.scheduleSettingsQuickScrollReset();
+      const templateBucket = getQuickTemplateBucket(nextMode);
+      const templateMeta = templateBucket ? getTemplateBucketMeta(templateBucket) : null;
+      UI.setSettingsStatus(
+        nextMode === "favorite"
+          ? "Показано избранное."
+          : `Показаны: ${templateMeta?.title || "шаблоны"}.`,
+        "info"
+      );
+    }
+  },
+
+  isBudgetSidePagerEnabled() {
+    return Store.activeTab === "overviewTab"
+      && typeof window !== "undefined"
+      && window.matchMedia("(min-width: 1281px)").matches;
+  },
+
+  shiftBudgetSidePage(delta = 1) {
+    const workspace = document.querySelector(".budget-workspace");
+    const main = workspace?.querySelector(".budget-workspace__main");
+    const side = workspace?.querySelector(".budget-workspace__side");
+    const panel = document.querySelector(".budget-side-panel");
+    const sections = Array.from(document.querySelectorAll(".budget-side-panel [data-budget-side-page]"));
+    if (!sections.length) {
+      return;
+    }
+    const stableHeight = (
+      panel?.getBoundingClientRect?.().height ||
+      side?.getBoundingClientRect?.().height ||
+      main?.getBoundingClientRect?.().height ||
+      0
+    );
+    if (stableHeight > 0) {
+      this.setSyncedHeight?.(side, stableHeight);
+      this.setSyncedHeight?.(panel, stableHeight);
+    }
+    this.budgetSidePage = (this.budgetSidePage + Number(delta || 0) + sections.length) % sections.length;
+    this.syncBudgetSidePager(stableHeight);
+    this.syncBudgetWorkspaceLayout?.(stableHeight);
+  },
+
+  syncBudgetSidePager(stableHeight = 0) {
+    const panel = document.querySelector(".budget-side-panel");
+    const pager = Utils.$("budgetSidePager");
+    const index = Utils.$("budgetSidePagerIndex");
+    const pages = panel?.querySelector(".budget-side-panel__pages");
+    const sections = Array.from(panel?.querySelectorAll?.("[data-budget-side-page]") || []);
+    if (!(panel instanceof HTMLElement) || !sections.length) {
+      return;
+    }
+
+    const isPaged = this.isBudgetSidePagerEnabled();
+    panel.classList.toggle("is-paged", isPaged);
+    if (pager instanceof HTMLElement) {
+      pager.hidden = !isPaged;
+      pager.setAttribute("aria-hidden", String(!isPaged));
+    }
+
+    if (!isPaged) {
+      this.clearPanelHeightSync?.(pages, ...sections);
+      sections.forEach((section) => {
+        section.hidden = false;
+        section.classList.remove("is-active");
+        section.setAttribute("aria-hidden", "false");
+      });
+      return;
+    }
+
+    const safeIndex = ((this.budgetSidePage % sections.length) + sections.length) % sections.length;
+    this.budgetSidePage = safeIndex;
+    sections.forEach((section, sectionIndex) => {
+      const isActive = safeIndex === sectionIndex;
+      section.hidden = !isActive;
+      section.classList.toggle("is-active", isActive);
+      section.setAttribute("aria-hidden", String(!isActive));
+    });
+
+    if (index) {
+      index.textContent = `${safeIndex + 1} / ${sections.length}`;
+    }
+
+    if (stableHeight > 0 && pager instanceof HTMLElement && pages instanceof HTMLElement && typeof this.setSyncedHeight === "function") {
+      const panelGap = parseFloat(getComputedStyle(panel).rowGap || getComputedStyle(panel).gap || "0") || 0;
+      const pagerHeight = pager.getBoundingClientRect().height;
+      const pagesHeight = Math.max(0, stableHeight - pagerHeight - panelGap);
+      this.setSyncedHeight(pages, pagesHeight);
+      sections.forEach((section) => this.setSyncedHeight(section, pagesHeight));
+    } else {
+      this.clearPanelHeightSync?.(pages, ...sections);
     }
   },
 
@@ -287,44 +406,693 @@ const UI = {
     });
   },
 
-  getVisibleTagCatalog() {
-    const tags = Store.getTagCatalog();
-    const query = Utils.normalizeLookupKey(this.tagsSearchQuery);
-    if (!query) {
-      return tags;
-    }
-    return tags.filter((tag) => {
-      const haystack = [
-        tag.name,
-        tag.note,
-        Store.tagUsageDetails(tag.name, Store.viewMonth)?.expenseCategories?.map((item) => item.name).join(" ")
-      ].filter(Boolean).join(" ");
-      return Utils.normalizeLookupKey(haystack).includes(query);
-    });
-  },
-
-  resolveSelectedTagName(visibleTags) {
-    const current = Utils.normalizeTags(this.selectedTagName)[0] || "";
-    if (current && visibleTags.some((tag) => tag.name === current)) {
-      return current;
-    }
-    const monthGroups = Store.tagGroups(Store.viewMonth);
-    const firstActive = monthGroups.find((group) => visibleTags.some((tag) => tag.name === group.tag));
-    const fallback = firstActive?.tag || visibleTags[0]?.name || "";
-    this.selectedTagName = fallback;
-    return fallback;
-  },
-
   syncGoalModeFields() {
     const mode = Utils.$("goalModeInput")?.value || "balance";
     const savedField = Utils.$("goalSavedField");
-    const tagField = Utils.$("goalTagField");
     if (savedField) {
       savedField.classList.toggle("is-hidden", mode !== "saved");
     }
-    if (tagField) {
-      tagField.classList.toggle("is-hidden", mode !== "tag");
+  },
+
+  setHeatmapHintOpen(nextOpen) {
+    const shouldOpen = Boolean(nextOpen);
+    this.heatmapHintOpen = shouldOpen;
+    document.querySelectorAll(".heatmap-v2__hint").forEach((button) => {
+      button.classList.toggle("is-open", shouldOpen);
+      button.setAttribute("aria-expanded", String(shouldOpen));
+      button.setAttribute("aria-pressed", String(shouldOpen));
+    });
+    document.querySelectorAll(".heatmap-v2__hint-bubble").forEach((bubble) => {
+      bubble.classList.toggle("is-open", shouldOpen);
+      bubble.toggleAttribute("hidden", !shouldOpen);
+    });
+  },
+
+  getBudgetNumpadRoot() {
+    return Utils.$("budgetAmountPad");
+  },
+
+  getBudgetDayPadRoot() {
+    return Utils.$("budgetDayPad");
+  },
+
+  getBudgetDayPadTitleNode() {
+    return Utils.$("budgetDayPadTitle");
+  },
+
+  getBudgetDayPadGrid() {
+    return Utils.$("budgetDayPadGrid");
+  },
+
+  getBudgetDayPadTodayButton() {
+    return Utils.$("budgetDayPadTodayBtn");
+  },
+
+  getBudgetDayPadField() {
+    if (!this.budgetDayPadState.itemId) {
+      return null;
     }
+    const row = document.querySelector(`.entry-row[data-entry-id="${this.budgetDayPadState.itemId}"]`);
+    const input = row?.querySelector('[data-journal-field="day"]');
+    return input instanceof HTMLInputElement ? input : null;
+  },
+
+  getBudgetDayPadTrigger() {
+    if (!this.budgetDayPadState.itemId) {
+      return null;
+    }
+    const row = document.querySelector(`.entry-row[data-entry-id="${this.budgetDayPadState.itemId}"]`);
+    const button = row?.querySelector('[data-journal-action="pick-day"]');
+    return button instanceof HTMLElement ? button : null;
+  },
+
+  renderBudgetDayPad() {
+    const titleNode = this.getBudgetDayPadTitleNode();
+    const grid = this.getBudgetDayPadGrid();
+    const todayButton = this.getBudgetDayPadTodayButton();
+    if (!(grid instanceof HTMLElement)) {
+      return;
+    }
+    const { monthKey, year, monthIndex, value } = this.budgetDayPadState;
+    const daysInMonth = year && Number.isInteger(monthIndex)
+      ? new Date(year, monthIndex + 1, 0).getDate()
+      : 31;
+    if (titleNode) {
+      titleNode.textContent = monthKey ? Utils.monthLabel(monthKey) : "Выберите день";
+    }
+    const buttons = [];
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      buttons.push(`
+        <button
+          class="budget-daypad__day${day === value ? " is-active" : ""}"
+          type="button"
+          data-budget-day-value="${day}"
+          aria-pressed="${day === value ? "true" : "false"}"
+        >${day}</button>
+      `);
+    }
+    grid.innerHTML = buttons.join("");
+
+    if (todayButton) {
+      const today = new Date();
+      const isCurrentMonth = monthKey === Utils.monthKey(today);
+      todayButton.hidden = !isCurrentMonth;
+      if (isCurrentMonth) {
+        todayButton.textContent = "Сегодня";
+      }
+    }
+  },
+
+  positionBudgetDayPad() {
+    if (!this.budgetDayPadState.open) {
+      return;
+    }
+    const root = this.getBudgetDayPadRoot();
+    const trigger = this.getBudgetDayPadTrigger();
+    if (!(root instanceof HTMLElement) || !(trigger instanceof HTMLElement)) {
+      return;
+    }
+    const triggerRect = trigger.getBoundingClientRect();
+    const padRect = root.getBoundingClientRect();
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const gap = 8;
+    let left = triggerRect.right - padRect.width;
+    let top = triggerRect.bottom + gap;
+    if (left < 12) {
+      left = 12;
+    }
+    if (left + padRect.width > viewportWidth - 12) {
+      left = Math.max(12, viewportWidth - padRect.width - 12);
+    }
+    if (top + padRect.height > viewportHeight - 12) {
+      top = Math.max(12, triggerRect.top - padRect.height - gap);
+    }
+    root.style.left = `${Math.round(left)}px`;
+    root.style.top = `${Math.round(top)}px`;
+  },
+
+  openBudgetDayPad(button) {
+    const row = button?.closest?.("[data-entry-id]");
+    if (!(button instanceof HTMLElement) || !(row instanceof HTMLElement)) {
+      return;
+    }
+    const itemId = row.dataset.entryId || "";
+    const transaction = Store.data.transactions.find((item) => item.id === itemId);
+    const root = this.getBudgetDayPadRoot();
+    if (!transaction || !(root instanceof HTMLElement)) {
+      return;
+    }
+    if (this.budgetDayPadState.open && this.budgetDayPadState.itemId === itemId) {
+      this.closeBudgetDayPad({ restoreFocus: true });
+      return;
+    }
+    const monthKey = transaction.date.slice(0, 7);
+    const [year, month] = monthKey.split("-").map(Number);
+    this.closeBudgetNumpad({ commit: true, restoreFocus: false });
+    this.closeBudgetDayPad({ restoreFocus: false });
+    this.budgetDayPadState = {
+      open: true,
+      itemId,
+      monthKey,
+      year,
+      monthIndex: month - 1,
+      value: Number(transaction.date.slice(-2)) || 1
+    };
+    button.classList.add("is-active");
+    root.hidden = false;
+    root.setAttribute("aria-hidden", "false");
+    this.renderBudgetDayPad();
+    this.positionBudgetDayPad();
+  },
+
+  closeBudgetDayPad({ restoreFocus = false } = {}) {
+    const root = this.getBudgetDayPadRoot();
+    const trigger = this.getBudgetDayPadTrigger();
+    if (root instanceof HTMLElement) {
+      root.hidden = true;
+      root.setAttribute("aria-hidden", "true");
+      root.style.removeProperty("left");
+      root.style.removeProperty("top");
+    }
+    if (trigger instanceof HTMLElement) {
+      trigger.classList.remove("is-active");
+      if (restoreFocus) {
+        trigger.focus({ preventScroll: true });
+      }
+    }
+    this.budgetDayPadState = {
+      open: false,
+      itemId: "",
+      monthKey: "",
+      year: 0,
+      monthIndex: 0,
+      value: 1
+    };
+  },
+
+  applyBudgetDayValue(value) {
+    if (!this.budgetDayPadState.open) {
+      return;
+    }
+    const field = this.getBudgetDayPadField();
+    if (!(field instanceof HTMLInputElement)) {
+      this.closeBudgetDayPad({ restoreFocus: false });
+      return;
+    }
+    const day = Utils.clampDay(this.budgetDayPadState.year, this.budgetDayPadState.monthIndex, value);
+    field.value = String(day);
+    App.handleJournalField(field);
+    this.closeBudgetDayPad({ restoreFocus: true });
+  },
+
+  getBudgetNumpadValueNode() {
+    return Utils.$("budgetAmountPadValue");
+  },
+
+  getBudgetNumpadField() {
+    const { source, itemId, field, targetId } = this.budgetNumpadState;
+    if (source === "field") {
+      const input = targetId ? Utils.$(targetId) : null;
+      return input instanceof HTMLInputElement ? input : null;
+    }
+    if (!itemId || !field) {
+      return null;
+    }
+    const row = document.querySelector(`.entry-row[data-entry-id="${itemId}"]`);
+    const input = row?.querySelector(`[data-journal-field="${field}"]`);
+    return input instanceof HTMLInputElement ? input : null;
+  },
+
+  getBudgetNumpadTrigger() {
+    const { source, itemId, field, targetId } = this.budgetNumpadState;
+    if (source === "field") {
+      if (!targetId) {
+        return null;
+      }
+      const button = document.querySelector(`[data-journal-action="open-amount-keypad"][data-numpad-target-id="${targetId}"]`);
+      return button instanceof HTMLElement ? button : null;
+    }
+    if (!itemId || !field) {
+      return null;
+    }
+    const row = document.querySelector(`.entry-row[data-entry-id="${itemId}"]`);
+    const button = row?.querySelector(`[data-journal-action="open-amount-keypad"][data-numpad-field="${field}"]`);
+    return button instanceof HTMLElement ? button : null;
+  },
+
+  renderBudgetNumpad() {
+    const valueNode = this.getBudgetNumpadValueNode();
+    if (valueNode) {
+      valueNode.textContent = this.budgetNumpadState.value || "0";
+    }
+  },
+
+  positionBudgetNumpad() {
+    if (!this.budgetNumpadState.open) {
+      return;
+    }
+    const root = this.getBudgetNumpadRoot();
+    const trigger = this.getBudgetNumpadTrigger();
+    if (!(root instanceof HTMLElement) || !(trigger instanceof HTMLElement)) {
+      return;
+    }
+    const triggerRect = trigger.getBoundingClientRect();
+    const padRect = root.getBoundingClientRect();
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const gap = 8;
+    let left = triggerRect.right - padRect.width;
+    let top = triggerRect.bottom + gap;
+    if (left < 12) {
+      left = 12;
+    }
+    if (left + padRect.width > viewportWidth - 12) {
+      left = Math.max(12, viewportWidth - padRect.width - 12);
+    }
+    if (top + padRect.height > viewportHeight - 12) {
+      top = Math.max(12, triggerRect.top - padRect.height - gap);
+    }
+    root.style.left = `${Math.round(left)}px`;
+    root.style.top = `${Math.round(top)}px`;
+  },
+
+  syncBudgetNumpadFieldValue() {
+    const field = this.getBudgetNumpadField();
+    if (field) {
+      field.value = this.budgetNumpadState.value;
+    }
+    return field;
+  },
+
+  openBudgetNumpad(button) {
+    const directTargetId = button?.dataset?.numpadTargetId || "";
+    const row = button?.closest?.("[data-entry-id]");
+    const fieldName = button?.dataset?.numpadField || "amount";
+    const input = directTargetId
+      ? Utils.$(directTargetId)
+      : row?.querySelector?.(`[data-journal-field="${fieldName}"]`);
+    const root = this.getBudgetNumpadRoot();
+    if (!(button instanceof HTMLElement) || !(input instanceof HTMLInputElement) || !(root instanceof HTMLElement)) {
+      return;
+    }
+    if (!directTargetId && !(row instanceof HTMLElement)) {
+      return;
+    }
+    if (
+      this.budgetNumpadState.open &&
+      (
+        (directTargetId && this.budgetNumpadState.source === "field" && this.budgetNumpadState.targetId === directTargetId) ||
+        (!directTargetId && this.budgetNumpadState.source === "journal" && this.budgetNumpadState.itemId === row.dataset.entryId && this.budgetNumpadState.field === fieldName)
+      )
+    ) {
+      this.closeBudgetNumpad({ commit: true, restoreFocus: true });
+      return;
+    }
+    this.closeBudgetNumpad({ commit: true, restoreFocus: false });
+    this.budgetNumpadState = {
+      open: true,
+      source: directTargetId ? "field" : "journal",
+      itemId: directTargetId ? "" : (row.dataset.entryId || ""),
+      field: directTargetId ? "" : fieldName,
+      targetId: directTargetId,
+      value: String(input.value || "")
+    };
+    document.querySelectorAll("[data-journal-action='open-amount-keypad'].is-active").forEach((item) => item.classList.remove("is-active"));
+    button.classList.add("is-active");
+    root.hidden = false;
+    root.setAttribute("aria-hidden", "false");
+    this.renderBudgetNumpad();
+    this.positionBudgetNumpad();
+  },
+
+  closeBudgetNumpad({ commit = true, restoreFocus = false } = {}) {
+    const root = this.getBudgetNumpadRoot();
+    const trigger = this.getBudgetNumpadTrigger();
+    const field = this.syncBudgetNumpadFieldValue();
+    const wasOpen = this.budgetNumpadState.open;
+    if (wasOpen && commit && field) {
+      if (this.budgetNumpadState.source === "journal") {
+        App.handleJournalField(field);
+      } else {
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
+    if (root instanceof HTMLElement) {
+      root.hidden = true;
+      root.setAttribute("aria-hidden", "true");
+      root.style.removeProperty("left");
+      root.style.removeProperty("top");
+    }
+    if (trigger instanceof HTMLElement) {
+      trigger.classList.remove("is-active");
+      if (restoreFocus) {
+        trigger.focus({ preventScroll: true });
+      }
+    }
+    this.budgetNumpadState = {
+      open: false,
+      source: "journal",
+      itemId: "",
+      field: "",
+      targetId: "",
+      value: ""
+    };
+  },
+
+  applyBudgetNumpadToken(token) {
+    if (!this.budgetNumpadState.open) {
+      return;
+    }
+    const raw = String(this.budgetNumpadState.value || "");
+    let next = raw;
+    if (token === "backspace") {
+      next = raw.slice(0, -1);
+    } else if (token === "clear") {
+      next = "";
+    } else if (token === ",") {
+      if (!raw.includes(".") && !raw.includes(",")) {
+        next = raw ? `${raw},` : "0,";
+      }
+    } else if (/^\d$/.test(token)) {
+      next = raw === "0" ? token : `${raw}${token}`;
+    }
+    next = next.replace(/[^\d,.]/g, "");
+    const commaIndex = next.search(/[,.]/);
+    if (commaIndex !== -1) {
+      const integer = next.slice(0, commaIndex).replace(/[,.]/g, "");
+      const fraction = next.slice(commaIndex + 1).replace(/[,.]/g, "");
+      next = `${integer || "0"},${fraction.slice(0, 2)}`;
+    } else {
+      next = next.replace(/[,.]/g, "");
+    }
+    this.budgetNumpadState.value = next;
+    this.syncBudgetNumpadFieldValue();
+    this.renderBudgetNumpad();
+    this.positionBudgetNumpad();
+  },
+
+  ensureFieldNumpadControl(inputId, labelText) {
+    const input = Utils.$(inputId);
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+    input.type = "text";
+    input.setAttribute("inputmode", "decimal");
+    input.setAttribute("autocomplete", "off");
+    input.setAttribute("spellcheck", "false");
+    let wrapper = input.parentElement;
+    if (!(wrapper instanceof HTMLElement) || !wrapper.classList.contains("field-affix-control")) {
+      wrapper = document.createElement("div");
+      wrapper.className = "field-affix-control";
+      if (inputId === "monthStartInput") {
+        wrapper.classList.add("field-affix-control--month-balance");
+      }
+      input.parentNode?.insertBefore(wrapper, input);
+      wrapper.appendChild(input);
+    }
+    let button = wrapper.querySelector(`[data-journal-action="open-amount-keypad"][data-numpad-target-id="${inputId}"]`);
+    if (!(button instanceof HTMLButtonElement)) {
+      button = document.createElement("button");
+      button.type = "button";
+      button.className = "entry-amount-keypad entry-control-affix field-affix-control__button";
+      button.dataset.journalAction = "open-amount-keypad";
+      button.dataset.numpadTargetId = inputId;
+      button.setAttribute("aria-label", labelText);
+      button.title = labelText;
+      button.innerHTML = Utils.icon("dialpad");
+      wrapper.appendChild(button);
+    }
+  },
+
+  decorateStaticNumpadTargets() {
+    [
+      ["monthStartInput", "Открыть цифровой блок для начального остатка"],
+      ["editAmountInput", "Открыть цифровой блок для суммы"],
+      ["templateAmountInput", "Открыть цифровой блок для суммы"],
+      ["categoryLimitInput", "Открыть цифровой блок для лимита"],
+      ["goalTargetInput", "Открыть цифровой блок для целевой суммы"],
+      ["goalSavedInput", "Открыть цифровой блок для накопленной суммы"],
+      ["amountInput", "Открыть цифровой блок для суммы"]
+    ].forEach(([inputId, labelText]) => this.ensureFieldNumpadControl(inputId, labelText));
+  },
+
+  getBudgetRowFlowTargets(row) {
+    if (!(row instanceof HTMLElement)) {
+      return [];
+    }
+    const selectors = row.classList.contains("entry-row--wishlist")
+      ? [
+        '[data-journal-field="wish-desc"]',
+        '[data-journal-field="wish-amount"]',
+        '[data-journal-action="fulfill-wish"]'
+      ]
+      : [
+        '[data-journal-field="day"]',
+        '[data-journal-field="amount"]',
+        '[data-journal-field="description"]'
+      ];
+    return selectors
+      .map((selector) => row.querySelector(selector))
+      .filter((element) => element instanceof HTMLElement && !element.hasAttribute("disabled"));
+  },
+
+  focusBudgetFlowTarget(target) {
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+    target.focus({ preventScroll: true });
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+      target.select?.();
+    }
+  },
+
+  getBudgetFlowSelector(target) {
+    if (!(target instanceof HTMLElement)) {
+      return "";
+    }
+    if (target.matches('[data-journal-field="day"]')) {
+      return '[data-journal-field="day"]';
+    }
+    if (target.matches('[data-journal-field="amount"]')) {
+      return '[data-journal-field="amount"]';
+    }
+    if (target.matches('[data-journal-field="description"]')) {
+      return '[data-journal-field="description"]';
+    }
+    if (target.matches('[data-journal-field="wish-desc"]')) {
+      return '[data-journal-field="wish-desc"]';
+    }
+    if (target.matches('[data-journal-field="wish-amount"]')) {
+      return '[data-journal-field="wish-amount"]';
+    }
+    if (target.matches('[data-journal-action="fulfill-wish"]')) {
+      return '[data-journal-action="fulfill-wish"]';
+    }
+    return "";
+  },
+
+  queueBudgetFlowFocus(parentRoot, rowIndex, selector) {
+    if (!(parentRoot instanceof HTMLElement) || !selector) {
+      return;
+    }
+    App.runAfterNextPaint(() => {
+      const rows = Array.from(parentRoot.querySelectorAll(".entry-row"));
+      const nextRow = rows[rowIndex];
+      const nextTarget = nextRow?.querySelector(selector);
+      if (nextTarget instanceof HTMLElement) {
+        this.focusBudgetFlowTarget(nextTarget);
+      }
+    }, 1);
+  },
+
+  flushPendingBudgetFlow(attempt = 0) {
+    const pending = this.budgetFlowPending;
+    if (!pending) {
+      return;
+    }
+    App.runAfterNextPaint(() => {
+      if (pending.type === "focus") {
+        const rows = Array.from(pending.parentRoot?.querySelectorAll?.(".entry-row") || []);
+        const nextRow = rows[pending.rowIndex];
+        const nextTarget = nextRow?.querySelector(pending.selector);
+        if (!(nextTarget instanceof HTMLElement)) {
+          if (attempt < 6) {
+            this.flushPendingBudgetFlow(attempt + 1);
+            return;
+          }
+          this.budgetFlowPending = null;
+          return;
+        }
+        this.budgetFlowPending = null;
+        if (nextRow instanceof HTMLElement && pending.scrollRow) {
+          nextRow.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+        }
+        this.focusBudgetFlowTarget(nextTarget);
+        const reinforceFocus = () => {
+          const currentRows = Array.from(pending.parentRoot?.querySelectorAll?.(".entry-row") || []);
+          const currentRow = currentRows[pending.rowIndex];
+          const currentTarget = currentRow?.querySelector(pending.selector);
+          if (currentTarget instanceof HTMLElement && document.activeElement !== currentTarget) {
+            this.focusBudgetFlowTarget(currentTarget);
+          }
+        };
+        App.runAfterNextPaint(reinforceFocus, 2);
+        App.runAfterNextPaint(reinforceFocus, 5);
+        return;
+      }
+      if (pending.type !== "create") {
+        this.budgetFlowPending = null;
+        return;
+      }
+      const addButton = document.querySelector(`[data-journal-action="add-row"][data-section="${pending.section}"]`);
+      if (!(addButton instanceof HTMLElement)) {
+        if (attempt < 6) {
+          this.flushPendingBudgetFlow(attempt + 1);
+          return;
+        }
+        this.budgetFlowPending = null;
+        return;
+      }
+      this.budgetFlowPending = null;
+      addButton.click();
+      App.runAfterNextPaint(() => {
+        const rows = Array.from(pending.parentRoot?.querySelectorAll?.(".entry-row") || []);
+        const addedRow = rows[rows.length - 1];
+        const addedTarget = this.getBudgetRowFlowTargets(addedRow)[0];
+        if (addedRow instanceof HTMLElement) {
+          addedRow.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+        }
+        if (addedTarget instanceof HTMLElement) {
+          this.focusBudgetFlowTarget(addedTarget);
+        }
+      }, 2);
+    }, 1);
+  },
+
+  moveBudgetRowFlow(currentRow, currentTarget, direction = 1, { allowCreate = false } = {}) {
+    if (!(currentRow instanceof HTMLElement) || !(currentTarget instanceof HTMLElement)) {
+      return false;
+    }
+    const siblingRows = Array.from(currentRow.parentElement?.querySelectorAll?.(".entry-row") || []);
+    const rowIndex = siblingRows.indexOf(currentRow);
+    if (rowIndex === -1) {
+      return false;
+    }
+    const targets = this.getBudgetRowFlowTargets(currentRow);
+    const currentIndex = targets.indexOf(currentTarget);
+    if (currentIndex === -1) {
+      return false;
+    }
+    const currentRoot = currentRow.parentElement;
+    const isCompactTextarea = currentTarget.matches("textarea[data-compact='true']");
+    const nextTarget = targets[currentIndex + direction];
+    if (nextTarget) {
+      if (isCompactTextarea) {
+        this.budgetFlowPending = {
+          type: "focus",
+          parentRoot: currentRoot,
+          rowIndex,
+          selector: this.getBudgetFlowSelector(nextTarget),
+          scrollRow: false
+        };
+        currentTarget.blur();
+        return true;
+      }
+      this.focusBudgetFlowTarget(nextTarget);
+      this.queueBudgetFlowFocus(currentRoot, rowIndex, this.getBudgetFlowSelector(nextTarget));
+      return true;
+    }
+
+    const siblingIndex = rowIndex + direction;
+    const siblingRow = siblingRows[siblingIndex];
+    if (siblingRow instanceof HTMLElement) {
+      const siblingTargets = this.getBudgetRowFlowTargets(siblingRow);
+      const siblingTarget = direction > 0 ? siblingTargets[0] : siblingTargets[siblingTargets.length - 1];
+      if (siblingTarget) {
+        if (isCompactTextarea) {
+          this.budgetFlowPending = {
+            type: "focus",
+            parentRoot: currentRoot,
+            rowIndex: siblingIndex,
+            selector: this.getBudgetFlowSelector(siblingTarget),
+            scrollRow: true
+          };
+          currentTarget.blur();
+          return true;
+        }
+        siblingRow.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+        this.focusBudgetFlowTarget(siblingTarget);
+        this.queueBudgetFlowFocus(currentRoot, siblingIndex, this.getBudgetFlowSelector(siblingTarget));
+        return true;
+      }
+    }
+
+    if (!allowCreate || direction < 0) {
+      return false;
+    }
+    const section = currentRow.dataset.section || "";
+    const addButton = section
+      ? document.querySelector(`[data-journal-action="add-row"][data-section="${section}"]`)
+      : null;
+    if (!(addButton instanceof HTMLElement)) {
+      return false;
+    }
+    const parentRoot = currentRoot;
+    if (isCompactTextarea) {
+      this.budgetFlowPending = {
+        type: "create",
+        parentRoot,
+        section
+      };
+      currentTarget.blur();
+      return true;
+    }
+    addButton.click();
+    App.runAfterNextPaint(() => {
+      const rows = Array.from(parentRoot?.querySelectorAll?.(".entry-row") || []);
+      const addedRow = rows[rows.length - 1];
+      const addedTarget = this.getBudgetRowFlowTargets(addedRow)[0];
+      if (addedTarget) {
+        addedRow.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+        this.focusBudgetFlowTarget(addedTarget);
+      }
+    }, 2);
+    return true;
+  },
+
+  handleBudgetKeyboardFlow(event) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+    const isCompactTextarea = target.matches("textarea[data-compact='true']");
+    const row = target.closest(".entry-row");
+    if (!(row instanceof HTMLElement)) {
+      return false;
+    }
+    if (event.key === "Tab" && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      if (this.moveBudgetRowFlow(row, target, event.shiftKey ? -1 : 1)) {
+        event.preventDefault();
+        if (isCompactTextarea) {
+          App.runAfterNextPaint(() => this.flushPendingBudgetFlow(), 6);
+        }
+        return true;
+      }
+      return false;
+    }
+    if (event.key !== "Enter" || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) {
+      return false;
+    }
+    if (this.moveBudgetRowFlow(row, target, 1, { allowCreate: true })) {
+      event.preventDefault();
+      if (isCompactTextarea) {
+        App.runAfterNextPaint(() => this.flushPendingBudgetFlow(), 6);
+      }
+      return true;
+    }
+    return false;
   },
 
   handleEnterAdvance(event) {
@@ -377,10 +1145,20 @@ const UI = {
     return false;
   },
 
+  isJournalDragBlockedTarget(target) {
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+    return Boolean(
+      target.closest(
+        "input, textarea, select, option, button, a, summary, label, [contenteditable='true'], [data-journal-action], [data-action], [data-setting-action], [data-picker-toggle], .entry-field, .compact-textarea.is-editing"
+      )
+    );
+  },
+
   init() {
-    this.monthTrendCollapsed = Storage.readText(CONFIG.MONTH_TREND_KEY, "1") !== "0";
+    this.decorateStaticNumpadTargets();
     this.budgetFiltersCollapsed = Storage.readText(CONFIG.BUDGET_FILTERS_KEY, "1") !== "0";
-    this.goalsPanelCollapsed = Storage.readText(CONFIG.GOALS_PANEL_KEY, "0") === "1";
     try {
       const savedSorts = JSON.parse(Storage.readText(CONFIG.JOURNAL_SORT_KEY, "{}"));
         this.journalSectionSorts = {
@@ -396,11 +1174,10 @@ const UI = {
           recurring: "date-desc",
           expenses: "date-desc"
         };
-      }
+    }
     this.applySidebarState(true);
+    this.syncResponsiveShell();
     this.bindEvents();
-    this.ensureGoalsPanelControls();
-    this.renderGoalsPanelState();
     this.setupAutoResize();
   },
 
@@ -433,8 +1210,6 @@ const UI = {
     on("todayBtn", "click", () => App.goToCurrentMonth());
     on("monthStartInput", "change", (event) => App.updateMonthStart(event.target.value));
     on("manualStartCheck", "change", (event) => App.toggleManualMonthStart(event.target.checked));
-    on("monthTrendToggleBtn", "click", () => this.toggleMonthTrend());
-    on("goalPanelToggleBtn", "click", () => this.toggleGoalsPanel());
     on("editTransactionForm", "submit", (event) => {
       event.preventDefault();
       App.saveEditedTransaction();
@@ -450,14 +1225,6 @@ const UI = {
     on("goalForm", "submit", (event) => {
       event.preventDefault();
       App.saveGoal();
-    });
-    on("tagForm", "submit", (event) => {
-      event.preventDefault();
-      App.saveTag();
-    });
-    on("transactionTagsForm", "submit", (event) => {
-      event.preventDefault();
-      App.saveTransactionTags();
     });
     on("startupAuthForm", "submit", (event) => {
       event.preventDefault();
@@ -489,7 +1256,6 @@ const UI = {
     on("filterCategory", "change", (event) => App.updateFilter("categoryId", event.target.value));
     on("sortSelect", "change", (event) => App.updateFilter("sort", event.target.value));
     on("searchInput", "input", (event) => App.updateFilter("search", event.target.value));
-    on("tagSearchInput", "input", (event) => UI.setTagSearchQuery(event.target.value));
     on("filterDateFrom", "change", (event) => App.updateFilter("dateFrom", event.target.value));
     on("filterDateTo", "change", (event) => App.updateFilter("dateTo", event.target.value));
     on("accountBtn", "click", () => App.openAccountEntry());
@@ -500,18 +1266,20 @@ const UI = {
     on("importFileInput", "change", (event) => App.importBackup(event));
     on("openCategoryCreateBtn", "click", () => App.openCategoryModal());
     on("deleteCategoryBtn", "click", () => App.deleteCurrentCategory());
-    on("loadTemplateBtn", "click", () => App.openPicker("templates"));
+    on("loadIncomeTemplateBtn", "click", () => App.openPicker("templates-income"));
+    on("loadDebtTemplateBtn", "click", () => App.openPicker("templates-debt"));
+    on("loadTemplateBtn", "click", () => App.openPicker("templates-recurring"));
     on("loadFavoriteBtn", "click", () => App.openPicker("favorites"));
     on("settingsQuickCreateBtn", "click", () => App.createQuickItem(this.settingsQuickMode));
-    on("settingsQuickTemplatesBtn", "click", () => this.setSettingsQuickMode("template"));
+    on("settingsQuickTemplatesBtn", "click", () => this.setSettingsQuickMode("template-recurring"));
+    on("settingsQuickIncomeBtn", "click", () => this.setSettingsQuickMode("template-income"));
+    on("settingsQuickDebtBtn", "click", () => this.setSettingsQuickMode("template-debt"));
     on("settingsQuickFavoritesBtn", "click", () => this.setSettingsQuickMode("favorite"));
-    on("createTagBtn", "click", () => App.openTagModal());
     on("deleteGoalBtn", "click", () => App.deleteCurrentGoal());
-    on("deleteTagBtn", "click", () => App.deleteCurrentTag());
     on("pickerApplyBtn", "click", () => App.applyPickerSelection());
     on("accountSyncNowBtn", "click", () => App.syncNow());
     on("accountLogoutBtn", "click", () => App.logout());
-    on("accountPasswordInfoBtn", "click", () => UI.toast("Смена пароля появится после обновления API.", "info"));
+    on("accountPasswordInfoBtn", "click", () => UI.toast("Смену пароля добавим позже.", "info"));
     on("syncChoiceKeepLocalBtn", "click", () => App.resolveSyncChoice("local"));
     on("syncChoiceUseCloudBtn", "click", () => App.resolveSyncChoice("cloud"));
     on("syncChoiceCancelBtn", "click", () => App.resolveSyncChoice("cancel"));
@@ -519,7 +1287,6 @@ const UI = {
     on("templateCategoryTriggerBtn", "click", () => App.openTemplateFormCategoryPicker());
     on("categoryColorInput", "input", () => this.renderCategoryColorValue());
     on("goalColorInput", "input", () => this.renderGoalColorValue());
-    on("tagColorInput", "input", () => this.renderTagColorValue());
     on("goalModeInput", "change", () => this.syncGoalModeFields());
 
     document.querySelectorAll("[data-tab-target]").forEach((button) => {
@@ -527,6 +1294,61 @@ const UI = {
     });
 
       document.addEventListener("click", (event) => {
+        const heatmapHintTarget = event.target.closest(".heatmap-v2__hint, .heatmap-v2__hint-bubble");
+        if (!heatmapHintTarget && this.heatmapHintOpen) {
+          this.setHeatmapHintOpen(false);
+        }
+
+        const mobileQuickSurface = event.target.closest("#mobileQuickSheet, #mobileFabBtn");
+        if (!mobileQuickSurface && Utils.$("appShell")?.classList.contains("is-mobile-quick-open")) {
+          this.setMobileQuickAddOpen(false);
+        }
+
+        const budgetNumpadKey = event.target.closest("[data-budget-numpad-key]");
+        if (budgetNumpadKey) {
+          this.applyBudgetNumpadToken(budgetNumpadKey.dataset.budgetNumpadKey || "");
+          return;
+        }
+
+        const budgetNumpadAction = event.target.closest("[data-budget-numpad-action]");
+        if (budgetNumpadAction) {
+          this.applyBudgetNumpadToken(budgetNumpadAction.dataset.budgetNumpadAction || "");
+          return;
+        }
+
+        const budgetDayValue = event.target.closest("[data-budget-day-value]");
+        if (budgetDayValue) {
+          this.applyBudgetDayValue(budgetDayValue.dataset.budgetDayValue || "");
+          return;
+        }
+
+        const budgetDayAction = event.target.closest("[data-budget-day-action]");
+        if (budgetDayAction) {
+          if (budgetDayAction.dataset.budgetDayAction === "today") {
+            this.applyBudgetDayValue(new Date().getDate());
+          }
+          return;
+        }
+
+        const budgetDayToggle = event.target.closest("[data-journal-action='pick-day']");
+        const budgetDayTarget = event.target.closest("#budgetDayPad");
+        if (!budgetDayToggle && !budgetDayTarget && this.budgetDayPadState.open) {
+          this.closeBudgetDayPad({ restoreFocus: false });
+        }
+
+        const budgetNumpadToggle = event.target.closest("[data-journal-action='open-amount-keypad']");
+        const budgetNumpadTarget = event.target.closest("#budgetAmountPad");
+        if (!budgetNumpadToggle && !budgetNumpadTarget && this.budgetNumpadState.open) {
+          this.closeBudgetNumpad({ commit: true, restoreFocus: false });
+        }
+        if (budgetNumpadToggle) {
+          if (this.shouldSkipBudgetClickAction("open-amount-keypad", budgetNumpadToggle)) {
+            return;
+          }
+          this.openBudgetNumpad(budgetNumpadToggle);
+          return;
+        }
+
         const passwordToggle = event.target.closest("[data-password-toggle]");
         if (passwordToggle) {
           UI.togglePasswordVisibility(passwordToggle.dataset.passwordToggle, passwordToggle);
@@ -549,11 +1371,46 @@ const UI = {
       }
 
       const actionButton = event.target.closest("[data-action]");
-      if (actionButton) {
-        const { action, id, month } = actionButton.dataset;
-        if (action === "edit-transaction") {
-          App.openEditTransaction(id);
-        }
+        if (actionButton) {
+          const { action, id, month } = actionButton.dataset;
+          if (action === "budget-side-prev") {
+            this.shiftBudgetSidePage(-1);
+            return;
+          }
+          if (action === "budget-side-next") {
+            this.shiftBudgetSidePage(1);
+            return;
+          }
+          if (action === "toggle-mobile-drawer") {
+            this.setMobileQuickAddOpen(false);
+            this.toggleMobileDrawer();
+            return;
+          }
+          if (action === "close-mobile-drawer") {
+            this.setMobileDrawerOpen(false);
+            return;
+          }
+          if (action === "toggle-mobile-quick-add") {
+            this.setMobileDrawerOpen(false);
+            this.toggleMobileQuickAdd();
+            return;
+          }
+          if (action === "close-mobile-quick-add") {
+            this.setMobileQuickAddOpen(false);
+            return;
+          }
+          if (action === "mobile-quick-add") {
+            App.addBudgetQuickRow(actionButton.dataset.section || "expenses");
+            return;
+          }
+          if (action === "toggle-heatmap-hint") {
+            const nextOpen = actionButton.getAttribute("aria-expanded") !== "true";
+            this.setHeatmapHintOpen(nextOpen);
+            return;
+          }
+          if (action === "focus-transaction") {
+            App.openTransactionInBudget(id);
+          }
         if (action === "delete-transaction") {
           App.deleteTransaction(id);
         }
@@ -583,20 +1440,6 @@ const UI = {
         }
         if (action === "create-goal-inline") {
           App.openGoalModal();
-        }
-        if (action === "edit-tag") {
-          App.openTagModal(id);
-        }
-        if (action === "select-tag") {
-          UI.selectedTagName = actionButton.dataset.tag || "";
-          UI.renderTagCatalog();
-          UI.renderTagGroups();
-        }
-        if (action === "filter-tag") {
-          App.openTagInBudget(actionButton.dataset.tag || "");
-        }
-        if (action === "open-tag-transaction") {
-          App.openTransactionInBudget(id);
         }
         if (action === "open-payment-transaction") {
           App.openTransactionInBudget(id);
@@ -636,10 +1479,6 @@ const UI = {
         App.togglePickerItem(pickerToggle.dataset.pickerToggle);
       }
 
-      const tagSuggestion = event.target.closest("[data-tag-suggestion]");
-      if (tagSuggestion) {
-        App.toggleTransactionTagSuggestion(tagSuggestion.dataset.tagSuggestion);
-      }
     });
 
     document.addEventListener("submit", (event) => {
@@ -665,9 +1504,38 @@ const UI = {
 
     });
 
+    document.addEventListener("pointerdown", (event) => {
+      const budgetNumpadToggle = event.target.closest?.("[data-journal-action='open-amount-keypad']");
+      if (budgetNumpadToggle instanceof HTMLElement) {
+        event.preventDefault();
+        this.rememberBudgetPointerAction("open-amount-keypad", budgetNumpadToggle);
+        this.openBudgetNumpad(budgetNumpadToggle);
+        return;
+      }
+      const row = event.target.closest?.("[draggable='true'][data-entry-id]");
+      if (!(row instanceof HTMLElement)) {
+        return;
+      }
+      const blocked = this.isJournalDragBlockedTarget(event.target);
+      row.dataset.dragBlocked = blocked ? "1" : "0";
+      this.dragState.blocked = blocked;
+    }, true);
+
+    const clearDragIntent = () => {
+      this.dragState.blocked = false;
+      document.querySelectorAll("[draggable='true'][data-entry-id][data-drag-blocked]").forEach((row) => {
+        row.removeAttribute("data-drag-blocked");
+      });
+    };
+
     document.addEventListener("dragstart", (event) => {
       const row = event.target.closest("[draggable='true'][data-entry-id]");
       if (!row) {
+        return;
+      }
+      if (row.dataset.dragBlocked === "1" || this.isJournalDragBlockedTarget(event.target)) {
+        event.preventDefault();
+        event.stopPropagation();
         return;
       }
       this.dragState.id = row.dataset.entryId;
@@ -686,6 +1554,7 @@ const UI = {
       document.querySelectorAll(".entry-row.is-drop-target").forEach((item) => item.classList.remove("is-drop-target"));
       this.dragState.id = null;
       this.dragState.section = null;
+      clearDragIntent();
     });
 
     document.addEventListener("dragover", (event) => {
@@ -710,9 +1579,47 @@ const UI = {
       if (row.dataset.entryId !== this.dragState.id) {
         App.reorderSection(row.dataset.section, this.dragState.id, row.dataset.entryId);
       }
+      clearDragIntent();
     });
 
+    document.addEventListener("pointerup", clearDragIntent, true);
+    document.addEventListener("pointercancel", clearDragIntent, true);
+    window.addEventListener("resize", () => {
+      this.positionBudgetNumpad();
+      this.positionBudgetDayPad();
+    });
+    document.addEventListener("scroll", () => {
+      this.positionBudgetNumpad();
+      this.positionBudgetDayPad();
+    }, true);
+
     document.addEventListener("keydown", (event) => {
+      if (this.handleBudgetKeyboardFlow(event)) {
+        event.stopPropagation();
+      }
+    }, true);
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && this.budgetDayPadState.open) {
+        event.preventDefault();
+        this.closeBudgetDayPad({ restoreFocus: true });
+        return;
+      }
+      if (event.key === "Escape" && this.budgetNumpadState.open) {
+        event.preventDefault();
+        this.closeBudgetNumpad({ commit: true, restoreFocus: true });
+        return;
+      }
+      if (event.key === "Escape" && Utils.$("appShell")?.classList.contains("is-mobile-quick-open")) {
+        event.preventDefault();
+        this.setMobileQuickAddOpen(false);
+        return;
+      }
+      if (event.key === "Escape" && Utils.$("appShell")?.classList.contains("is-mobile-drawer-open")) {
+        event.preventDefault();
+        this.setMobileDrawerOpen(false);
+        return;
+      }
       if (this.handleEnterAdvance(event)) {
         return;
       }
@@ -751,7 +1658,7 @@ const UI = {
               : (currentIndex + (event.key === "ArrowRight" ? 1 : -1) + buttons.length) % buttons.length;
           const nextButton = buttons[nextIndex];
           if (nextButton instanceof HTMLElement) {
-            this.setSettingsQuickMode(nextButton.dataset.settingsQuick || "template");
+            this.setSettingsQuickMode(nextButton.dataset.settingsQuick || "template-recurring");
             nextButton.focus();
           }
           return;
@@ -774,18 +1681,14 @@ const UI = {
         }
       }
       if (event.key === "Escape") {
+        if (this.heatmapHintOpen) {
+          this.setHeatmapHintOpen(false);
+          return;
+        }
         App.resolveSyncChoice("cancel");
         this.closeModals();
         this.closeSidebar();
       }
-    });
-
-    document.addEventListener("dblclick", (event) => {
-      const row = event.target.closest(".entry-row[data-entry-id][data-section]");
-      if (!row || row.dataset.section === "wishlist") {
-        return;
-      }
-      App.openEditTransaction(row.dataset.entryId);
     });
 
     window.setInterval(() => this.renderSyncState(), 60000);

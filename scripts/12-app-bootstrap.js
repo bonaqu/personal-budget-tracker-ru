@@ -19,12 +19,12 @@ const App = {
     Sync.init();
     try {
       const savedTab = sessionStorage.getItem("activeTab");
-      if (["overviewTab", "analyticsTab", "tagsTab", "monthsTab", "settingsTab"].includes(savedTab)) {
+      if (["overviewTab", "analyticsTab", "monthsTab", "settingsTab"].includes(savedTab)) {
         Store.activeTab = savedTab;
       }
       const savedQuickMode = sessionStorage.getItem("settingsQuickMode");
-      if (["template", "favorite"].includes(savedQuickMode)) {
-        UI.settingsQuickMode = savedQuickMode;
+      if (savedQuickMode) {
+        UI.settingsQuickMode = normalizeSettingsQuickMode(savedQuickMode);
       }
     } catch {}
     if (Utils.$("dateInput")) {
@@ -61,13 +61,15 @@ const App = {
   },
 
   switchTab(tabId) {
-    if (!["overviewTab", "analyticsTab", "tagsTab", "monthsTab", "settingsTab"].includes(tabId)) {
+    if (!["overviewTab", "analyticsTab", "monthsTab", "settingsTab"].includes(tabId)) {
       return;
     }
     Store.activeTab = tabId;
     try {
       sessionStorage.setItem("activeTab", tabId);
     } catch {}
+    UI.setMobileDrawerOpen(false);
+    UI.setMobileQuickAddOpen(false);
     UI.renderTabs();
     UI.renderActiveTabContent(tabId);
     UI.renderHistoryState();
@@ -75,6 +77,25 @@ const App = {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "auto" }));
     }
+  },
+
+  addBudgetQuickRow(section = "expenses") {
+    const safeSection = ["incomes", "debts", "recurring", "expenses", "wishlist"].includes(section) ? section : "expenses";
+    this.switchTab("overviewTab");
+    Store.addSectionRow(safeSection);
+    UI.setMobileQuickAddOpen(false);
+    UI.toast("Новая строка добавлена", "info");
+    App.runAfterNextPaint(() => {
+      const sectionRoots = {
+        incomes: "incomesList",
+        debts: "debtsList",
+        recurring: "recurringBudgetList",
+        expenses: "expensesList",
+        wishlist: "wishList"
+      };
+      const row = Utils.$(sectionRoots[safeSection])?.lastElementChild;
+      row?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+    }, 2);
   },
 
   openAccountEntry() {
@@ -98,35 +119,63 @@ const App = {
     const meta = Utils.$("accountMenuMeta");
     const avatar = Utils.$("accountMenuAvatar");
     const status = Utils.$("accountMenuStatus");
+    const source = Utils.$("accountMenuSource");
+    const cloud = Utils.$("accountMenuCloud");
+    const pending = Utils.$("accountMenuPending");
+    const lastSync = Utils.$("accountMenuLastSync");
     const login = Auth.getLogin();
     const isLocalOnly = Auth.isLocalOnly();
     const isLocalTest = isLocalOnly && isLocalTestLogin(login);
+    const hasPending = !isLocalOnly && Sync.hasPendingChanges(login);
     let statusTone = "is-local";
-    let statusLabel = "Локально";
-    let subtextValue = "Сессия активна в текущем браузере.";
-    let metaValue = "Данные доступны только в текущем браузере";
-    let stateValue = "Это локальная сессия без обращения к API и без облачной синхронизации.";
-    let passwordHintValue = "Для локальной сессии смена пароля недоступна.";
+    let statusLabel = "На устройстве";
+    let subtextValue = "Бюджет хранится только на этом устройстве.";
+    let metaValue = "Бюджет пока живет только на этом устройстве";
+    let stateValue = "Сейчас главным источником остается это устройство. Подключите аккаунт, если нужен один и тот же бюджет на компьютере и телефоне.";
+    let passwordHintValue = "Для локальной сессии отдельный пароль не нужен.";
+    let sourceValue = "Это устройство";
+    let cloudValue = "Не используется";
+    let pendingValue = "Нет";
+    let lastSyncValue = "—";
 
     if (isLocalTest) {
-      subtextValue = "Демо-среда активна только в этом браузере.";
-      metaValue = "Изолированная демо-среда без API и облачной синхронизации";
-      stateValue = "Фейковые демо-данные живут отдельно и не попадут в настоящий аккаунт.";
+      statusLabel = "Демо";
+      subtextValue = "Демо доступно только в этом браузере.";
+      metaValue = "Демо-данные живут отдельно от вашего аккаунта";
+      stateValue = "Это отдельная демонстрационная среда. Ее данные не отправляются в облако и не попадут в ваш рабочий бюджет.";
     } else if (!isLocalOnly) {
       subtextValue = Auth.getExpiry()
-        ? `Сессия активна до ${new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short" }).format(new Date(Auth.getExpiry()))}.`
-        : "Сессия активна в текущем браузере.";
-      metaValue = "Облачная сессия с API-синхронизацией";
-      passwordHintValue = "Смена пароля появится после поддержки отдельного endpoint в API.";
+        ? `Аккаунт активен до ${new Intl.DateTimeFormat("ru-RU", { dateStyle: "medium", timeStyle: "short" }).format(new Date(Auth.getExpiry()))}.`
+        : "Аккаунт подключен в этом браузере.";
+      metaValue = "Аккаунт подключен и готов к синхронизации";
+      passwordHintValue = "Смену пароля добавим чуть позже.";
+      sourceValue = "Аккаунт";
+      pendingValue = hasPending ? "Есть изменения" : "Нет";
+      lastSyncValue = Sync.lastSyncedAt ? Utils.timeSince(Sync.lastSyncedAt) : "Еще не было";
       stateValue = Sync.status === "synced"
-        ? "Синхронизация активна и данные уже сохранены в аккаунте."
+        ? (hasPending
+          ? "На этом устройстве есть новые изменения. Мы уже держим их в очереди и скоро отправим в облако."
+          : (Sync.lastSyncedAt
+            ? `Все синхронизировано. Последняя отправка была ${Utils.timeSince(Sync.lastSyncedAt)}.`
+            : "Аккаунт подключен. Бюджет уже доступен в облаке."))
         : (Sync.status === "syncing"
-          ? "Идет синхронизация текущих изменений."
+          ? "Сейчас отправляем последние изменения в облако."
           : (Sync.status === "offline"
-            ? "Интернет недоступен. Очередь изменений будет отправлена позже."
+            ? "Связи с облаком сейчас нет. Новые изменения уже сохранены на устройстве и отправятся позже."
             : (Sync.status === "error"
-              ? `Есть проблема синхронизации: ${Sync.lastError || "локальные данные сохранены, но облако не обновилось."}`
-              : "Облачная сессия активна, но синхронизация сейчас не выполняется.")));
+              ? `Не получилось обновить облако: ${Sync.lastError || "данные на устройстве сохранены, но облако пока еще не обновилось."}`
+              : "Аккаунт подключен. Сверяем данные с облаком.")));
+      if (Sync.status === "syncing") {
+        cloudValue = "Сверяем";
+      } else if (Sync.status === "offline") {
+        cloudValue = "Нет связи";
+      } else if (Sync.status === "error") {
+        cloudValue = "Есть сбой";
+      } else if (Sync.status === "synced") {
+        cloudValue = hasPending ? "Ждет отправки" : "В порядке";
+      } else {
+        cloudValue = "Подключено";
+      }
     }
 
     if (title) {
@@ -147,12 +196,15 @@ const App = {
     if (state) {
       state.textContent = stateValue;
       if (!isLocalOnly) {
-        if (Sync.status === "synced") {
+        if (Sync.status === "synced" && hasPending) {
+          statusTone = "is-syncing";
+          statusLabel = "Изменения";
+        } else if (Sync.status === "synced") {
           statusTone = "is-synced";
-          statusLabel = "Синхр.";
+          statusLabel = "В облаке";
         } else if (Sync.status === "syncing") {
           statusTone = "is-syncing";
-          statusLabel = "Синхр.";
+          statusLabel = "Отправка";
         } else if (Sync.status === "offline") {
           statusTone = "is-offline";
           statusLabel = "Оффлайн";
@@ -165,6 +217,18 @@ const App = {
     if (passwordHint) {
       passwordHint.textContent = passwordHintValue;
     }
+    if (source) {
+      source.textContent = sourceValue;
+    }
+    if (cloud) {
+      cloud.textContent = cloudValue;
+    }
+    if (pending) {
+      pending.textContent = pendingValue;
+    }
+    if (lastSync) {
+      lastSync.textContent = lastSyncValue;
+    }
     if (status) {
       status.className = `account-menu__status ${statusTone}`;
       status.textContent = statusLabel;
@@ -176,9 +240,9 @@ const App = {
   describeDataSource(data, fallbackLabel) {
     const summary = summarizeNormalizedData(normalizeData(data));
     if (!Object.values(summary).some((value) => Number(value) > 0)) {
-      return `${fallbackLabel}: пусто`;
+      return `${fallbackLabel}: пока без записей`;
     }
-    return `${fallbackLabel}: ${summary.months} мес. · ${summary.transactions} операций · ${summary.templates} шабл. · ${summary.favorites} избр. · ${summary.wishlist} хотелки`;
+    return `${fallbackLabel}: ${summary.months} мес. · ${summary.transactions} операций · ${summary.templates} сценариев · ${summary.favorites} избранных · ${summary.wishlist} целей`;
   },
 
   promptSyncChoice({ login, guestData, remoteData }) {
@@ -189,7 +253,7 @@ const App = {
       title.textContent = `Данные для аккаунта ${login}`;
     }
     if (localSummary) {
-      localSummary.textContent = this.describeDataSource(guestData, "Текущие локальные данные");
+      localSummary.textContent = this.describeDataSource(guestData, "Данные на устройстве");
     }
     if (cloudSummary) {
       cloudSummary.textContent = this.describeDataSource(remoteData, "Данные в аккаунте");
@@ -229,7 +293,7 @@ const App = {
 
     if (syncUp) {
       Sync.queueSync();
-      await Sync.processQueue(true);
+      App.runAfterNextPaint(() => Sync.processQueue(true), 2);
     } else {
       Sync.lastSyncedAt = Utils.nowISO();
       Storage.saveLastSync(Auth.getLogin(), Sync.lastSyncedAt);
@@ -255,13 +319,16 @@ const App = {
     const hasRemote = hasMeaningfulData(remoteData);
 
     if (!hasGuest) {
-      const nextData = isSemanticallySameData(remoteData, localAccount)
+      const sameAsRemote = isSemanticallySameData(remoteData, localAccount);
+      const nextData = sameAsRemote
         ? remoteData
         : mergeData(remoteRaw, localAccount);
       await this.applyAuthenticatedData(nextData, {
         clearGuest: false,
-        syncUp: false,
-        toastMessage: "Аккаунт подключен, облачные данные загружены"
+        syncUp: !sameAsRemote,
+        toastMessage: sameAsRemote
+          ? "Аккаунт подключен. Бюджет загружен из облака"
+          : "Аккаунт подключен. Данные на устройстве сверены с облаком"
       });
       return;
     }
@@ -270,7 +337,7 @@ const App = {
       await this.applyAuthenticatedData(guestData, {
         clearGuest: true,
         syncUp: true,
-        toastMessage: "Текущие данные подключены к аккаунту и отправлены в облако"
+        toastMessage: "Аккаунт подключен. Данные с устройства отправлены в облако"
       });
       return;
     }
@@ -279,7 +346,7 @@ const App = {
       await this.applyAuthenticatedData(remoteData, {
         clearGuest: true,
         syncUp: false,
-        toastMessage: "Аккаунт подключен. Данные уже совпадали, дубли не созданы"
+        toastMessage: "Аккаунт подключен. Данные уже совпадают"
       });
       return;
     }
@@ -289,7 +356,7 @@ const App = {
       await this.applyAuthenticatedData(guestData, {
         clearGuest: true,
         syncUp: true,
-        toastMessage: "Оставили текущие данные и синхронизировали их с аккаунтом"
+        toastMessage: "Оставили данные с устройства и отправили их в облако"
       });
       return;
     }
@@ -297,7 +364,7 @@ const App = {
       await this.applyAuthenticatedData(remoteData, {
         clearGuest: true,
         syncUp: false,
-        toastMessage: "Текущие локальные данные заменены данными из аккаунта"
+        toastMessage: "Данные на устройстве заменены данными из аккаунта"
       });
       return;
     }
@@ -314,7 +381,7 @@ const App = {
     Store.resetHistory();
     UI.showApp();
     UI.renderApp();
-    UI.toast("Вход отменен. Вы остались с текущими локальными данными", "info");
+    UI.toast("Вход отменен. Продолжаем работу с данными на этом устройстве.", "info");
   },
 
   async authenticate(source, mode) {
@@ -395,6 +462,12 @@ const App = {
 
       if (previousLocalOnly) {
         Storage.clearPending();
+        Storage.remove(Storage.cacheKey(LOCAL_TEST_CREDENTIALS.login));
+        Storage.saveCache(null, defaultData());
+      }
+      if (afterLocalTestLogout) {
+        Storage.remove(Storage.cacheKey(LOCAL_TEST_CREDENTIALS.login));
+        Storage.saveCache(null, defaultData());
       }
 
       const appShell = Utils.$("appShell");
@@ -474,13 +547,20 @@ const App = {
         Storage.saveCache(null, defaultData());
       }
       if (!silent) {
-        UI.toast("Аккаунт подключен, данные загружены", "success");
+        UI.toast("Аккаунт подключен. Данные из облака загружены", "success");
       }
 
       if (!isSemanticallySameData(remoteData, merged)) {
         Sync.queueSync();
+        await Sync.processQueue(true);
       }
     } catch (error) {
+      if (Api.isAuthSessionError(error)) {
+        this.handleRemoteSessionInvalid({
+          message: "Сессия аккаунта завершилась. Войдите снова, чтобы продолжить работу с облаком."
+        });
+        return;
+      }
       const message = Api.getMessage(error, "Не удалось загрузить данные аккаунта");
       Sync.lastError = message;
       Sync.status = error?.code === "NETWORK_UNAVAILABLE" || error?.code === "TIMEOUT" ? "offline" : "error";
@@ -495,9 +575,33 @@ const App = {
       UI.renderApp();
       if (!silent) {
         const toastType = Sync.status === "offline" ? "warning" : "error";
-        UI.toast(`${message}. Работаем из локального кэша`, toastType);
+        UI.toast(`${message}. Продолжаем работать с данными на устройстве`, toastType);
+        }
       }
+    },
+
+  handleRemoteSessionInvalid({ message = "Сессия аккаунта завершилась. Войдите снова." } = {}) {
+    const login = Auth.getLogin();
+    const wasLocalTest = Auth.isLocalOnly() && isLocalTestLogin(login);
+    UI.closeModal("accountMenuModal");
+    clearTimeout(Sync.timer);
+    Sync.clearRetry();
+    Sync.retryAttempt = 0;
+    Sync.status = "local";
+    Sync.lastSyncedAt = null;
+    Sync.lastError = "";
+
+    if (!wasLocalTest) {
+      Storage.saveCache(null, normalizeData(Store.data));
+    } else if (login) {
+      Storage.remove(Storage.cacheKey(login));
     }
+
+    Auth.clearSession({ preservePending: true });
+    Store.loadLocal(null);
+    Store.resetHistory();
+    UI.showStartupAuth();
+    UI.toast(message, "warning");
   },
 
   handleSessionExpired({ login, token = "", localOnly = false, isLocalTest = false } = {}) {
@@ -573,7 +677,7 @@ const App = {
     }
     Sync.queueSync();
     Sync.processQueue(true);
-    UI.toast("Запустили синхронизацию аккаунта", "info");
+    UI.toast("Сверяем изменения и отправляем свежую версию в облако", "info");
   },
 
   undo() {
@@ -610,9 +714,9 @@ const App = {
       }).catch(() => {});
       return;
     }
-    if (Store.activeTab === "overviewTab" && !UI.monthTrendCollapsed) {
+    if (Store.activeTab === "overviewTab") {
       UI.ensureChartsReady().then(() => {
-        if (Store.activeTab === "overviewTab" && !UI.monthTrendCollapsed) {
+        if (Store.activeTab === "overviewTab") {
           UI.renderMonthBalanceChart();
         }
       }).catch(() => {});
@@ -637,7 +741,7 @@ const App = {
 
   updateMonthStart(value) {
     Store.saveMonthMeta(Store.viewMonth, {
-      start: Math.max(0, Utils.roundMoney(Utils.safeNumber(value)))
+      start: Math.max(0, Utils.roundMoney(Utils.parseAmount(value)))
     });
     UI.renderApp();
   },
@@ -728,23 +832,6 @@ const App = {
     row.scrollIntoView({ behavior: this.prefersReducedMotion() ? "auto" : "smooth", block: "center" });
     row.classList.add("is-budget-target");
     setTimeout(() => row.classList.remove("is-budget-target"), 1800);
-  },
-
-  openTagInBudget(tag) {
-    const normalizedTag = Utils.normalizeTags(tag)[0] || String(tag || "").trim();
-    if (!normalizedTag) {
-      return;
-    }
-    this.applyBudgetNavigationState({
-      filters: {
-        period: "all",
-        type: "all",
-        search: normalizedTag
-      },
-      collapsed: false
-    });
-    this.switchTab("overviewTab");
-    this.runAfterNextPaint(() => this.focusBudgetFilterShell(), 3);
   },
 
   openRecurringInBudget(query) {
@@ -856,12 +943,12 @@ const App = {
           Store.saveTemplate({
             id: current.id,
             kind: "template",
+            bucket: current.bucket,
             desc: current.desc,
             amount: current.amount,
             type: current.type,
             categoryId: selectedId,
-            flowKind: current.flowKind || "recurring",
-            tags: current.tags
+            flowKind: current.flowKind || "recurring"
           });
         }
       } else if (context.target === "favorite-setting" && context.id) {
@@ -874,8 +961,7 @@ const App = {
             amount: current.amount,
             type: "expense",
             categoryId: selectedId,
-            flowKind: current.flowKind || "standard",
-            tags: current.tags
+            flowKind: current.flowKind || "standard"
           });
         }
       } else if (context.target === "edit-form") {
@@ -894,14 +980,18 @@ const App = {
       Store.applyFavoriteSelection(ids);
       UI.toast("Избранные операции добавлены", "success");
     } else {
+      const templateBucket = UI.pickerState.kind?.startsWith?.("templates-")
+        ? UI.pickerState.kind.replace("templates-", "")
+        : "recurring";
+      const templateMeta = getTemplateBucketMeta(templateBucket);
       Store.applyTemplateSelection(ids);
-      UI.toast("Шаблоны загружены в обязательные платежи", "success");
+      UI.toast(`${templateMeta.title} добавлены в бюджет`, "success");
     }
     UI.closeModal("pickerModal");
   },
 
   createQuickItem(kind) {
-    this.openTemplateModal(null, kind === "favorite" ? "favorite" : "template");
+    this.openTemplateModal(null, normalizeSettingsQuickMode(kind));
   },
 
   handleJournalAction(button) {
@@ -922,6 +1012,21 @@ const App = {
       this.deleteTransaction(id);
       return;
     }
+    if (action === "template" && id) {
+      const templateBucket = button.dataset.templateBucket || Store.getTemplateBucketForTransaction(Store.data.transactions.find((item) => item.id === id));
+      const templateMeta = getTemplateBucketMeta(templateBucket);
+      const isTemplate = Store.isTemplateTransaction(id, templateBucket);
+      const changed = isTemplate
+        ? Store.removeTemplateFromTransaction(id, templateBucket)
+        : Store.addTemplateFromTransaction(id, templateBucket);
+      UI.toast(
+        isTemplate
+          ? (changed ? `${templateMeta.itemLabel} удален из шаблонов` : "Шаблон уже был удален")
+          : (changed ? `${templateMeta.itemLabel} добавлен в шаблоны` : "Такой шаблон уже существует"),
+        changed ? "success" : "info"
+      );
+      return;
+    }
     if (action === "favorite" && id) {
       const isFavorite = Store.isFavoriteTransaction(id);
       const changed = isFavorite
@@ -935,8 +1040,10 @@ const App = {
       );
       return;
     }
-    if (action === "edit-tags" && id) {
-      this.openTransactionTagsModal(id);
+    if (action === "pick-day" && id) {
+      if (button instanceof HTMLElement) {
+        UI.openBudgetDayPad(button);
+      }
       return;
     }
     if (action === "open-category-picker" && id) {
@@ -976,7 +1083,7 @@ const App = {
         Store.updateWishlistItem(itemId, { desc: field.dataset.fulltext || field.value });
       }
       if (kind === "wish-amount") {
-        Store.updateWishlistItem(itemId, { amount: Math.max(0, Utils.roundMoney(Utils.safeNumber(field.value))) });
+        Store.updateWishlistItem(itemId, { amount: Math.max(0, Utils.parseAmount(field.value)) });
       }
       return;
     }
@@ -994,8 +1101,17 @@ const App = {
       Store.updateTransactionInline(itemId, { date: nextDate });
       return;
     }
+    if (kind === "date" && Utils.isISODate(field.value)) {
+      const nextDate = field.value;
+      const dayInput = row.querySelector('input[data-journal-field="day"]');
+      if (dayInput instanceof HTMLInputElement) {
+        dayInput.value = String(Number(nextDate.slice(-2)));
+      }
+      Store.updateTransactionInline(itemId, { date: nextDate });
+      return;
+    }
     if (kind === "amount") {
-      Store.updateTransactionInline(itemId, { amount: Math.max(0, Utils.roundMoney(Utils.safeNumber(field.value))) });
+      Store.updateTransactionInline(itemId, { amount: Math.max(0, Utils.parseAmount(field.value)) });
       return;
     }
     if (kind === "description") {
@@ -1010,25 +1126,13 @@ const App = {
   handleSettingsAction(button) {
     const action = button.dataset.settingAction;
     const id = button.dataset.id;
-    const tagName = button.dataset.tag;
+    const mode = normalizeSettingsQuickMode(button.dataset.mode || "template-recurring");
     if (action === "edit-template" && id) {
-      this.openTemplateModal(id, "template");
+      this.openTemplateModal(id, mode);
       return;
     }
     if (action === "edit-favorite" && id) {
       this.openTemplateModal(id, "favorite");
-      return;
-    }
-    if (action === "edit-template-tags" && id) {
-      this.openTransactionTagsModal(id, "template");
-      return;
-    }
-    if (action === "edit-favorite-tags" && id) {
-      this.openTransactionTagsModal(id, "favorite");
-      return;
-    }
-    if ((action === "toggle-template-tag" || action === "toggle-favorite-tag") && id && tagName) {
-      this.toggleQuickItemTag(action === "toggle-favorite-tag" ? "favorite" : "template", id, tagName);
       return;
     }
     if (action === "delete-template" && id) {
@@ -1051,6 +1155,7 @@ const App = {
       this.openPicker("category", {
         target: "template-setting",
         id,
+        mode,
         type: current.type,
         selectedId: current.categoryId
       });
@@ -1070,42 +1175,13 @@ const App = {
     }
   },
 
-  toggleQuickItemTag(kind, id, tagName) {
-    const normalizedTag = Utils.normalizeTags(tagName)[0] || "";
-    if (!normalizedTag) {
-      return;
-    }
-    const list = kind === "favorite" ? Store.data.settings.favorites : Store.data.settings.templates;
-    const current = list.find((item) => item.id === id);
-    if (!current) {
-      return;
-    }
-    const nextTags = new Set(Utils.normalizeTags(current.tags));
-    if (nextTags.has(normalizedTag)) {
-      nextTags.delete(normalizedTag);
-    } else {
-      nextTags.add(normalizedTag);
-      Store.ensureTagCatalogEntries([normalizedTag]);
-    }
-    Store.saveTemplate({
-      id: current.id,
-      kind,
-      desc: current.desc,
-      amount: current.amount,
-      type: current.type,
-      categoryId: current.categoryId,
-      flowKind: current.flowKind || (kind === "favorite" ? "standard" : "recurring"),
-      tags: Array.from(nextTags)
-    });
-  },
-
   handleSettingsField(field) {
     const id = field.dataset.id;
     if (!id) {
       return;
     }
     const kind = field.dataset.settingField;
-    if (kind === "template-desc" || kind === "template-amount" || kind === "template-category" || kind === "template-tags") {
+    if (kind === "template-desc" || kind === "template-amount" || kind === "template-category") {
       const current = Store.data.settings.templates.find((item) => item.id === id);
       if (!current) {
         return;
@@ -1113,16 +1189,16 @@ const App = {
       Store.saveTemplate({
         id,
         kind: "template",
+        bucket: current.bucket,
         desc: kind === "template-desc" ? (Utils.wrapText(field.dataset.fulltext || field.value) || "Новый шаблон") : current.desc,
         amount: kind === "template-amount" ? Math.max(0, Utils.roundMoney(Utils.safeNumber(field.value))) : current.amount,
         type: current.type,
         categoryId: kind === "template-category" ? field.value : current.categoryId,
-        flowKind: current.flowKind || "recurring",
-        tags: kind === "template-tags" ? Utils.normalizeTags(field.value) : current.tags
+        flowKind: current.flowKind || "recurring"
       });
       return;
     }
-    if (kind === "favorite-desc" || kind === "favorite-amount" || kind === "favorite-category" || kind === "favorite-tags") {
+    if (kind === "favorite-desc" || kind === "favorite-amount" || kind === "favorite-category") {
       const current = Store.data.settings.favorites.find((item) => item.id === id);
       if (!current) {
         return;
@@ -1134,8 +1210,7 @@ const App = {
         amount: kind === "favorite-amount" ? Math.max(0, Utils.roundMoney(Utils.safeNumber(field.value))) : current.amount,
         type: "expense",
         categoryId: kind === "favorite-category" ? field.value : current.categoryId,
-        flowKind: "standard",
-        tags: kind === "favorite-tags" ? Utils.normalizeTags(field.value) : current.tags
+        flowKind: "standard"
       });
     }
   },
@@ -1155,7 +1230,6 @@ const App = {
     const flowKind = type === "income" ? "standard" : Utils.$(isEdit ? "editFlowKindInput" : "flowKindInput").value;
     const date = Utils.$(isEdit ? "editDateInput" : "dateInput").value;
     const description = Utils.wrapText(Utils.$(isEdit ? "editDescriptionInput" : "descriptionInput").value);
-    const tags = Utils.normalizeTags(Utils.$(isEdit ? "editTagsInput" : "tagsInput")?.value || "");
 
     if (!amount) {
       throw new Error("Введите корректную сумму");
@@ -1173,8 +1247,7 @@ const App = {
       amount,
       categoryId,
       date,
-      description,
-      tags
+      description
     };
   },
 
@@ -1182,7 +1255,6 @@ const App = {
     try {
       const form = UI.mountTransactionForm();
       const payload = this.buildTransactionPayload();
-      Store.ensureTagCatalogEntries(payload.tags);
       Store.addTransaction(payload);
       form?.reset();
       Utils.$("dateInput").value = Utils.todayISO();
@@ -1211,9 +1283,6 @@ const App = {
     Utils.$("editDateInput").value = transaction.date;
     Utils.$("editDescriptionInput").value = transaction.description;
     Utils.$("editFlowKindInput").value = transaction.flowKind;
-    if (Utils.$("editTagsInput")) {
-      Utils.$("editTagsInput").value = Utils.formatTags(transaction.tags);
-    }
     UI.renderEditCategories(transaction.categoryId, transaction.type);
     UI.openModal("transactionModal");
   },
@@ -1222,7 +1291,6 @@ const App = {
     try {
       const id = Utils.$("editTransactionId").value;
       const payload = this.buildTransactionPayload("edit");
-      Store.ensureTagCatalogEntries(payload.tags);
       Store.updateTransaction(id, payload);
       UI.closeModal("transactionModal");
       UI.toast("Изменения сохранены", "success");
@@ -1256,7 +1324,7 @@ const App = {
     const name = Utils.wrapText(Utils.$("categoryNameInput").value).slice(0, 48);
     const type = document.querySelector('input[name="categoryType"]:checked')?.value || "expense";
     const color = Utils.$("categoryColorInput").value;
-    const limit = Math.max(0, Utils.roundMoney(Utils.safeNumber(Utils.$("categoryLimitInput").value)));
+    const limit = Math.max(0, Utils.parseAmount(Utils.$("categoryLimitInput").value));
     if (!name) {
       UI.toast("Введите название категории", "warning");
       return;
@@ -1295,7 +1363,6 @@ const App = {
     Utils.$("goalTargetInput").value = goal?.target || "";
     Utils.$("goalModeInput").value = goal?.mode || "balance";
     Utils.$("goalSavedInput").value = goal?.saved || "";
-    Utils.$("goalTagInput").value = goal?.tag || "";
     Utils.$("goalColorInput").value = goal?.color || "#58a6ff";
     Utils.$("goalNoteInput").value = goal?.note || "";
     Utils.$("deleteGoalBtn").classList.toggle("is-hidden", !goal);
@@ -1307,22 +1374,16 @@ const App = {
   saveGoal() {
     const id = Utils.$("goalIdInput").value.trim();
     const name = Utils.wrapText(Utils.$("goalNameInput").value).slice(0, 64);
-    const target = Math.max(0, Utils.roundMoney(Utils.safeNumber(Utils.$("goalTargetInput").value)));
+    const target = Math.max(0, Utils.parseAmount(Utils.$("goalTargetInput").value));
     const mode = Utils.$("goalModeInput").value;
-    const saved = Math.max(0, Utils.roundMoney(Utils.safeNumber(Utils.$("goalSavedInput").value)));
-    const tag = Utils.normalizeTags(Utils.$("goalTagInput").value)[0] || "";
+    const saved = Math.max(0, Utils.parseAmount(Utils.$("goalSavedInput").value));
     const color = Utils.$("goalColorInput").value;
     const note = Utils.wrapText(Utils.$("goalNoteInput").value).slice(0, 180);
     if (!name || !target) {
       UI.toast("Заполните цель корректно", "warning");
       return;
     }
-    if (mode === "tag" && !tag) {
-      UI.toast("Для режима по тегу укажите тег", "warning");
-      return;
-    }
-    Store.ensureTagCatalogEntries(tag ? [tag] : []);
-    Store.saveGoal({ id, name, target, mode, saved, tag, color, note });
+    Store.saveGoal({ id, name, target, mode, saved, color, note });
     UI.closeModal("goalModal");
     if (navigator.vibrate) {
       navigator.vibrate(50);
@@ -1344,220 +1405,91 @@ const App = {
     UI.toast("Цель удалена", "info");
   },
 
-  openTagModal(tagId = null) {
-    const tag = tagId ? Store.getTagDefinition(tagId) : null;
-    Utils.$("tagModalTitle").textContent = tag ? "Редактирование тега" : "Новый тег";
-    Utils.$("tagIdInput").value = tag?.id || "";
-    Utils.$("tagNameInput").value = tag?.name || "";
-    Utils.$("tagColorInput").value = tag?.color || "#58a6ff";
-    Utils.$("tagNoteInput").value = tag?.note || "";
-    Utils.$("deleteTagBtn").classList.toggle("is-hidden", !tag);
-    UI.renderTagColorValue();
-    UI.openModal("tagModal");
-  },
-
-  saveTag() {
-    const id = Utils.$("tagIdInput").value.trim();
-    const name = Utils.normalizeTags(Utils.$("tagNameInput").value)[0] || "";
-    const color = Utils.$("tagColorInput").value;
-    const note = Utils.wrapText(Utils.$("tagNoteInput").value).slice(0, 180);
-    if (!name) {
-      UI.toast("Введите корректный тег", "warning");
-      return;
-    }
-    const duplicate = Store.getTagCatalog().some((item) => item.name === name && item.id !== id);
-    if (duplicate) {
-      UI.toast("Такой тег уже существует", "warning");
-      return;
-    }
-    Store.saveTagDefinition({ id, name, color, note });
-    UI.selectedTagName = name;
-    UI.closeModal("tagModal");
-    if (navigator.vibrate) {
-      navigator.vibrate(50);
-    }
-    UI.toast("Тег сохранен", "success");
-  },
-
-  deleteCurrentTag() {
-    const id = Utils.$("tagIdInput").value.trim();
-    const name = Utils.$("tagNameInput").value;
-    if (!id && !name) {
-      return;
-    }
-    Store.deleteTagDefinition(id, name);
-    if ((UI.selectedTagName || "") === (Utils.normalizeTags(name)[0] || "")) {
-      UI.selectedTagName = "";
-    }
-    UI.closeModal("tagModal");
-    UI.toast("Тег удален", "info");
-  },
-
-  openTransactionTagsModal(targetId, targetKind = "transaction") {
-    const kind = ["transaction", "template", "favorite"].includes(targetKind) ? targetKind : "transaction";
-    const target = kind === "transaction"
-      ? Store.data.transactions.find((item) => item.id === targetId)
-      : kind === "template"
-        ? Store.data.settings.templates.find((item) => item.id === targetId)
-        : Store.data.settings.favorites.find((item) => item.id === targetId);
-    if (!target) {
-      return;
-    }
-    const eyebrow = Utils.$("transactionTagsModal")?.querySelector(".eyebrow");
-    if (eyebrow) {
-      eyebrow.textContent = kind === "transaction"
-        ? "Теги операции"
-        : kind === "template"
-          ? "Теги шаблона"
-          : "Теги избранного";
-    }
-    Utils.$("transactionTagsIdInput").value = target.id;
-    Utils.$("transactionTagsTargetKindInput").value = kind;
-    Utils.$("transactionTagsInput").value = Utils.formatTags(target.tags);
-    Utils.$("transactionTagsModalTitle").textContent = kind === "transaction"
-      ? (target.description || "Настройка тегов")
-      : kind === "template"
-        ? (target.desc || "Теги шаблона")
-        : (target.desc || "Теги избранного");
-    Utils.$("transactionTagsModalSubtext").textContent = kind === "transaction"
-      ? "Можно выбрать существующие теги или ввести новые вручную."
-      : kind === "template"
-        ? "Добавляйте теги к шаблону, чтобы быстро собирать обязательные платежи по темам."
-        : "Добавляйте теги к избранным покупкам, чтобы быстро группировать текущие расходы.";
-    UI.renderTransactionTagSuggestions(target.tags);
-    UI.openModal("transactionTagsModal");
-  },
-
-  toggleTransactionTagSuggestion(tagName) {
-    const input = Utils.$("transactionTagsInput");
-    if (!input) {
-      return;
-    }
-    const current = new Set(Utils.normalizeTags(input.value));
-    const normalized = Utils.normalizeTags(tagName)[0] || "";
-    if (!normalized) {
-      return;
-    }
-    if (current.has(normalized)) {
-      current.delete(normalized);
-    } else {
-      current.add(normalized);
-    }
-    input.value = Array.from(current).join(", ");
-    UI.renderTransactionTagSuggestions(Array.from(current));
-  },
-
-  saveTransactionTags() {
-    const transactionId = Utils.$("transactionTagsIdInput").value.trim();
-    const targetKind = Utils.$("transactionTagsTargetKindInput")?.value || "transaction";
-    const tags = Utils.normalizeTags(Utils.$("transactionTagsInput").value);
-    if (!transactionId) {
-      return;
-    }
-    Store.ensureTagCatalogEntries(tags);
-    if (targetKind === "template" || targetKind === "favorite") {
-      const list = targetKind === "template" ? Store.data.settings.templates : Store.data.settings.favorites;
-      const current = list.find((item) => item.id === transactionId);
-      if (!current) {
-        return;
-      }
-      Store.saveTemplate({
-        id: current.id,
-        kind: targetKind,
-        desc: current.desc,
-        amount: current.amount,
-        type: targetKind === "favorite" ? "expense" : current.type,
-        categoryId: current.categoryId,
-        flowKind: targetKind === "favorite" ? "standard" : (current.flowKind || "recurring"),
-        tags
-      });
-    } else {
-      Store.updateTransactionInline(transactionId, { tags });
-    }
-    UI.closeModal("transactionTagsModal");
-    UI.toast(
-      targetKind === "template"
-        ? "Теги шаблона сохранены"
-        : targetKind === "favorite"
-          ? "Теги избранного сохранены"
-          : "Теги операции сохранены",
-      "success"
-    );
-  },
-
-  syncTemplateFormState(kind = Utils.$("templateKindInput")?.value || "template") {
-    const isFavorite = kind === "favorite";
+  syncTemplateFormState(kind = Utils.$("templateKindInput")?.value || "template-recurring") {
+    const mode = normalizeSettingsQuickMode(kind);
+    const isFavorite = mode === "favorite";
+    const templateBucket = getQuickTemplateBucket(mode);
+    const templateMeta = templateBucket ? getTemplateBucketMeta(templateBucket) : null;
     const typeField = Utils.$("templateTypeField");
     const flowField = Utils.$("templateFlowKindField");
     const typeInput = Utils.$("templateTypeInput");
     const flowInput = Utils.$("templateFlowKindInput");
-    const tagsHintText = Utils.$("templateTagsHintText");
     if (typeField) {
-      typeField.classList.toggle("is-hidden", isFavorite);
+      typeField.classList.toggle("is-hidden", isFavorite || Boolean(templateMeta));
     }
     if (flowField) {
-      flowField.classList.toggle("is-hidden", isFavorite);
+      flowField.classList.toggle("is-hidden", isFavorite || Boolean(templateMeta));
     }
     if (typeInput) {
       if (isFavorite) {
         typeInput.value = "expense";
+      } else if (templateMeta) {
+        typeInput.value = templateMeta.type;
       }
-      typeInput.disabled = isFavorite;
+      typeInput.disabled = isFavorite || Boolean(templateMeta);
     }
     if (flowInput) {
       if (isFavorite) {
         flowInput.value = "standard";
+      } else if (templateMeta) {
+        flowInput.value = templateMeta.flowKind;
       }
-      flowInput.disabled = isFavorite;
-    }
-    if (tagsHintText) {
-      tagsHintText.textContent = isFavorite
-        ? "После сохранения используйте кнопку «Теги» у карточки избранного, чтобы быстро добавить или убрать метки."
-        : "После сохранения используйте кнопку «Теги» у карточки шаблона, чтобы быстро добавить или убрать метки.";
+      flowInput.disabled = isFavorite || Boolean(templateMeta);
     }
   },
 
-  openTemplateModal(itemId = null, kind = "template") {
-    const safeKind = kind === "favorite" ? "favorite" : "template";
+  openTemplateModal(itemId = null, kind = "template-recurring") {
+    const safeMode = kind === "favorite" ? "favorite" : normalizeSettingsQuickMode(kind);
+    const safeKind = safeMode === "favorite" ? "favorite" : "template";
     const list = safeKind === "favorite" ? Store.data.settings.favorites : Store.data.settings.templates;
     const current = itemId ? list.find((item) => item.id === itemId) : null;
+    const currentMode = current && safeKind === "template"
+      ? getTemplateBucketMeta(current.bucket, current.type, current.flowKind).quickMode
+      : safeMode;
+    const templateBucket = getQuickTemplateBucket(currentMode);
+    const templateMeta = templateBucket ? getTemplateBucketMeta(templateBucket) : null;
     const eyebrow = Utils.$("templateModal")?.querySelector(".eyebrow");
     Utils.$("templateForm").reset();
     Utils.$("templateIdInput").value = current?.id || "";
-    Utils.$("templateKindInput").value = safeKind;
+    Utils.$("templateKindInput").value = currentMode;
     if (eyebrow) {
-      eyebrow.textContent = safeKind === "favorite" ? "Избранное" : "Шаблон";
+      eyebrow.textContent = safeKind === "favorite" ? "Избранное" : (templateMeta?.title || "Шаблон");
     }
     Utils.$("templateModalTitle").textContent = safeKind === "favorite"
       ? (current ? "Редактирование избранного" : "Новая строка избранного")
-      : (current ? "Редактирование шаблона" : "Новый шаблон");
+      : (current ? `Редактирование: ${templateMeta?.itemLabel?.toLowerCase() || "шаблона"}` : (templateMeta?.createText || "Новый шаблон"));
     Utils.$("templateSubmitBtn").textContent = safeKind === "favorite"
       ? (current ? "Сохранить избранное" : "Добавить в избранное")
       : "Сохранить шаблон";
     Utils.$("templateDescInput").value = current?.desc || "";
     Utils.$("templateAmountInput").value = current?.amount || "";
-    Utils.$("templateTypeInput").value = safeKind === "favorite" ? "expense" : (current?.type || "expense");
-    Utils.$("templateFlowKindInput").value = safeKind === "favorite" ? "standard" : (current?.flowKind || "recurring");
+    Utils.$("templateTypeInput").value = safeKind === "favorite"
+      ? "expense"
+      : (templateMeta?.type || current?.type || "expense");
+    Utils.$("templateFlowKindInput").value = safeKind === "favorite"
+      ? "standard"
+      : (templateMeta?.flowKind || current?.flowKind || "recurring");
     Utils.$("templateCategoryInput").value = current?.categoryId || "";
-    this.syncTemplateFormState(safeKind);
+    this.syncTemplateFormState(currentMode);
     UI.renderTemplateCategories(current?.categoryId || null);
     UI.openModal("templateModal");
   },
 
   saveTemplate() {
     const id = Utils.$("templateIdInput").value.trim();
-    const kind = Utils.$("templateKindInput").value === "favorite" ? "favorite" : "template";
+    const mode = normalizeSettingsQuickMode(Utils.$("templateKindInput").value);
+    const kind = mode === "favorite" ? "favorite" : "template";
+    const templateBucket = getQuickTemplateBucket(mode);
     const list = kind === "favorite" ? Store.data.settings.favorites : Store.data.settings.templates;
     const current = id ? list.find((item) => item.id === id) : null;
     const desc = Utils.wrapText(Utils.$("templateDescInput").value).slice(0, 180);
     const amount = Utils.parseAmount(Utils.$("templateAmountInput").value);
-    const type = kind === "favorite" ? "expense" : Utils.$("templateTypeInput").value;
+    const templateMeta = templateBucket ? getTemplateBucketMeta(templateBucket) : null;
+    const type = kind === "favorite" ? "expense" : (templateMeta?.type || Utils.$("templateTypeInput").value);
     const categoryId = Utils.$("templateCategoryInput").value;
     const flowKind = kind === "favorite"
       ? "standard"
-      : type === "income"
-        ? "standard"
-        : Utils.$("templateFlowKindInput").value;
+      : (templateMeta?.flowKind || (type === "income" ? "standard" : Utils.$("templateFlowKindInput").value));
     if (!desc || !amount || !Store.getCategory(categoryId)) {
       UI.toast("Заполните шаблон корректно", "warning");
       return;
@@ -1565,15 +1497,20 @@ const App = {
     Store.saveTemplate({
       id: id || undefined,
       kind,
+      bucket: kind === "template" ? templateBucket : undefined,
       desc,
       amount,
       type,
       categoryId,
-      flowKind,
-      tags: current?.tags || []
+      flowKind
     });
     UI.closeModal("templateModal");
-    UI.toast(kind === "favorite" ? "Избранное сохранено" : "Шаблон сохранен", "success");
+    UI.toast(
+      kind === "favorite"
+        ? "Избранное сохранено"
+        : `${templateMeta?.itemLabel || "Шаблон"} сохранен`,
+      "success"
+    );
   },
 
   applyTemplate(templateId) {
@@ -1600,8 +1537,8 @@ const App = {
     link.download = `budget_${profile}_backup_${Utils.todayISO()}.json`;
     link.click();
     URL.revokeObjectURL(url);
-    UI.setBackupStatus("Бэкап экспортирован.", "success");
-    UI.toast("Бэкап экспортирован", "success");
+    UI.setBackupStatus("Резервная копия готова. Браузер уже начал скачивание.", "success");
+    UI.toast("Резервная копия готова", "success");
   },
 
   getBackupErrorMessage(error) {
@@ -1623,8 +1560,8 @@ const App = {
         name: file.name,
         size: file.size
       }, "error");
-      UI.setBackupStatus("Не удалось прочитать файл бэкапа.", "error");
-      UI.toast("Не удалось прочитать файл бэкапа", "error");
+      UI.setBackupStatus("Не получилось открыть файл резервной копии.", "error");
+      UI.toast("Не получилось прочитать резервную копию", "error");
       event.target.value = "";
     };
     reader.onload = () => {
@@ -1642,8 +1579,8 @@ const App = {
           audit
         });
         Store.importBackup(parsed);
-        UI.setBackupStatus("Бэкап импортирован.", "success");
-        UI.toast("Бэкап импортирован", "success");
+        UI.setBackupStatus("Резервная копия загружена. Бюджет уже на месте.", "success");
+        UI.toast("Резервная копия загружена", "success");
       } catch (error) {
         const message = this.getBackupErrorMessage(error);
         Diagnostics.report("import-backup:failed", {
@@ -1670,6 +1607,17 @@ const Diagnostics = {
   maxEvents: 40,
   errorCount: 0,
 
+  shouldLogToConsole(level = "info") {
+    if (level === "error" || level === "warning") {
+      return true;
+    }
+    try {
+      return window.__BUDGET_DEBUG__ === true || localStorage.getItem("budgetDebug") === "1";
+    } catch {
+      return false;
+    }
+  },
+
   report(label, payload, level = "info") {
     const method = typeof console[level] === "function" ? level : "info";
     this.events.push({
@@ -1683,6 +1631,9 @@ const Diagnostics = {
     }
     if (level === "error") {
       this.errorCount += 1;
+    }
+    if (!this.shouldLogToConsole(level)) {
+      return;
     }
     console.groupCollapsed(`[Budget Audit] ${label}`);
     console[method](payload);

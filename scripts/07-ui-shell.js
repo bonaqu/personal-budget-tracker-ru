@@ -29,6 +29,9 @@ Object.assign(UI, {
             Diagnostics.report("chart:resize-failed", { message: error?.message || String(error) }, "warning");
           }
         });
+        if (needsOverviewChartPass) {
+          this.syncBudgetWorkspaceLayout();
+        }
         if (needsAnalyticsPass) {
           this.syncPaymentCalendarLayout();
           this.syncAnalyticsPairLayouts();
@@ -52,7 +55,14 @@ Object.assign(UI, {
     if (!force && prevKey === nextKey) {
       return;
     }
-    chart.resize();
+    if (chart.canvas) {
+      chart.canvas.style.width = "";
+      chart.canvas.style.height = "";
+    }
+    chart.resize(width, height);
+    if (force && chart.config?.type === "doughnut") {
+      chart.update("none");
+    }
     this.chartSizeCache.set(chart, nextKey);
   },
 
@@ -157,7 +167,150 @@ Object.assign(UI, {
     );
   },
 
+  clearBudgetLayoutSync() {
+    const workspace = document.querySelector(".budget-workspace");
+    this.clearPanelHeightSync(
+      workspace?.querySelector(".budget-workspace__side"),
+      workspace?.querySelector(".budget-side-panel"),
+      workspace?.querySelector(".budget-side-panel__pages"),
+      ...Array.from(workspace?.querySelectorAll?.(".budget-side-panel [data-budget-side-page]") || [])
+    );
+  },
+
+  invalidateBudgetRenderCache() {
+    if (this.budgetRenderCache) {
+      this.budgetRenderCache.summary = "";
+      this.budgetRenderCache.monthPlan = "";
+    }
+    [
+      "overviewCategoryLegend",
+      "budgetLimitList",
+      "incomesList",
+      "debtsList",
+      "recurringBudgetList",
+      "expensesList",
+      "wishList",
+      "transactionsList"
+    ].forEach((id) => {
+      const root = Utils.$(id);
+      if (root instanceof HTMLElement) {
+        delete root.dataset.renderSignature;
+      }
+    });
+  },
+
+  forceBudgetLayoutRefresh() {
+    if (Store.activeTab !== "overviewTab") {
+      return;
+    }
+    this.refreshCompactTextareas?.();
+    this.syncBudgetSidePager?.();
+    this.syncBudgetWorkspaceLayout();
+    this.scheduleChartResize?.();
+    this.repaintBudgetSurfaces();
+    document
+      .querySelectorAll(
+        "#overviewTab .hero-strip, #overviewTab .budget-workspace, #overviewTab .budget-workspace__main, #overviewTab .budget-workspace__side, #overviewTab .budget-workspace__journal, #overviewTab .journal-layout--budget"
+      )
+      .forEach((element) => {
+        void element.getBoundingClientRect();
+      });
+  },
+
+  repaintBudgetSurfaces() {
+    if (Store.activeTab !== "overviewTab") {
+      return;
+    }
+    const root = Utils.$("overviewTab");
+    if (!(root instanceof HTMLElement)) {
+      return;
+    }
+    root.classList.add("is-budget-resize-refresh");
+    void root.getBoundingClientRect();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        root.classList.remove("is-budget-resize-refresh");
+      });
+    });
+  },
+
+  getBudgetLayoutKey() {
+    if (this.isMobileViewport()) {
+      return "mobile";
+    }
+    return this.isBudgetWideLayout() ? "wide" : "stack";
+  },
+
+  refreshBudgetVisibleContent() {
+    if (Store.activeTab !== "overviewTab") {
+      return;
+    }
+    this.renderMonthBalanceLegend?.(Utils.themePalette());
+    this.renderSummary?.();
+    this.renderMonthPlan?.();
+    this.renderBudgetFilters?.();
+    this.renderJournal?.();
+    this.renderTransactions?.();
+    this.renderOverviewExpenseLegend?.();
+    this.renderBudgetLimits?.();
+    this.refreshCompactTextareas?.();
+    this.syncBudgetWorkspaceLayout();
+    this.scheduleChartResize?.();
+  },
+
+  isBudgetWideLayout() {
+    return typeof window !== "undefined" && window.matchMedia("(min-width: 1281px)").matches;
+  },
+
+  syncBudgetWorkspaceLayout(stableHeightOverride = 0) {
+    const workspace = document.querySelector(".budget-workspace");
+    const main = workspace?.querySelector(".budget-workspace__main");
+    const side = workspace?.querySelector(".budget-workspace__side");
+    const sidePanel = side?.querySelector(".budget-side-panel");
+    const sidePages = sidePanel?.querySelector(".budget-side-panel__pages");
+    const sideSections = Array.from(sidePanel?.querySelectorAll?.("[data-budget-side-page]") || []);
+    if (!workspace || !main || !side || !sidePanel) {
+      return;
+    }
+    const isWide = this.isBudgetWideLayout();
+    const isPagedNow = sidePanel.classList.contains("is-paged");
+    const syncedHeight = parseFloat(sidePanel.dataset.syncedHeight || side.dataset.syncedHeight || "0") || 0;
+    const mainHeight = main.getBoundingClientRect().height || 0;
+    const sideHeight = side.getBoundingClientRect().height || 0;
+    const sidePanelHeight = sidePanel.getBoundingClientRect().height || 0;
+    let targetHeight = stableHeightOverride || 0;
+    if (!targetHeight) {
+      targetHeight = isWide
+        ? (mainHeight || syncedHeight || sidePanelHeight || sideHeight || 0)
+        : (syncedHeight || sidePanelHeight || sideHeight || mainHeight || 0);
+    }
+    this.clearBudgetLayoutSync();
+    this.syncBudgetSidePager?.(targetHeight);
+    if (Store.activeTab !== "overviewTab" || !isWide) {
+      return;
+    }
+
+    if (!targetHeight) {
+      return;
+    }
+
+    this.setSyncedHeight(side, targetHeight);
+    this.setSyncedHeight(sidePanel, targetHeight);
+
+    const pager = sidePanel.querySelector(".budget-side-panel__pager");
+    if (pager instanceof HTMLElement && sidePages instanceof HTMLElement && sideSections.length) {
+      const panelGap = parseFloat(getComputedStyle(sidePanel).rowGap || getComputedStyle(sidePanel).gap || "0") || 0;
+      const pagerHeight = pager.getBoundingClientRect().height;
+      const pagesHeight = Math.max(0, targetHeight - pagerHeight - panelGap);
+      this.setSyncedHeight(sidePages, pagesHeight);
+      sideSections.forEach((section) => this.setSyncedHeight(section, pagesHeight));
+    }
+  },
+
   syncActiveTabLayout() {
+    if (Store.activeTab === "overviewTab") {
+      this.syncBudgetWorkspaceLayout();
+    }
     if (Store.activeTab === "analyticsTab") {
       this.syncAnalyticsPairLayouts();
       this.syncPaymentCalendarLayout();
@@ -242,6 +395,27 @@ Object.assign(UI, {
       leftContent: breakdownContent,
       rightContent: heatmapContent
     });
+
+    const chartsToFinalize = [this.charts.flow, this.charts.category].filter(Boolean);
+    chartsToFinalize.forEach((chart) => {
+      try {
+        if (chart.canvas && chart.canvas.offsetParent !== null) {
+          this.resizeChartIfNeeded(chart, { force: true });
+        }
+      } catch (error) {
+        Diagnostics.report("chart:final-resize-failed", { message: error?.message || String(error) }, "warning");
+      }
+    });
+
+    if (this.charts.category) {
+      App.runAfterNextPaint(() => {
+        try {
+          this.resizeChartIfNeeded(this.charts.category, { force: true });
+        } catch (error) {
+          Diagnostics.report("chart:post-paint-resize-failed", { message: error?.message || String(error) }, "warning");
+        }
+      }, 2);
+    }
   },
 
   runPanelTransition(root, renderFn) {
@@ -263,6 +437,7 @@ Object.assign(UI, {
     let resizeFrame = 0;
     let resizeTimer = 0;
     let resizeSettledTimer = 0;
+    let lastBudgetLayoutKey = this.getBudgetLayoutKey();
 
     document.addEventListener("focusin", (event) => {
       const textarea = event.target.closest("textarea[data-compact='true']");
@@ -290,6 +465,7 @@ Object.assign(UI, {
         App.handleSettingsField(textarea);
       }
       this.collapseCompactTextarea(textarea);
+      this.flushPendingBudgetFlow?.();
     });
 
     document.addEventListener("input", (event) => {
@@ -326,7 +502,11 @@ Object.assign(UI, {
       cancelAnimationFrame(resizeFrame);
       document.body.classList.add("is-window-resizing");
       resizeFrame = requestAnimationFrame(() => {
+        const currentBudgetLayoutKey = this.getBudgetLayoutKey();
+        const budgetLayoutChanged = Store.activeTab === "overviewTab" && currentBudgetLayoutKey !== lastBudgetLayoutKey;
+        lastBudgetLayoutKey = currentBudgetLayoutKey;
         this.clearAnalyticsLayoutSync();
+        this.clearBudgetLayoutSync();
         if (Store.activeTab === "settingsTab") {
           this.syncSettingsLayout();
         }
@@ -334,13 +514,21 @@ Object.assign(UI, {
           if (["overviewTab", "monthsTab", "settingsTab"].includes(Store.activeTab)) {
             this.refreshCompactTextareas();
           }
+          this.syncResponsiveShell();
+          if (budgetLayoutChanged) {
+            this.forceBudgetLayoutRefresh();
+          }
           this.syncActiveTabLayout();
+          App.runAfterNextPaint(() => this.syncActiveTabLayout(), 2);
           if (this.shouldRunChartResize()) {
             this.scheduleChartResize();
           }
         }, 36);
         resizeSettledTimer = window.setTimeout(() => {
           document.body.classList.remove("is-window-resizing");
+          if (Store.activeTab === "overviewTab") {
+            App.runAfterNextPaint(() => this.forceBudgetLayoutRefresh(), 1);
+          }
         }, 160);
       });
     });
@@ -634,15 +822,108 @@ Object.assign(UI, {
   },
 
   closeModals() {
-    ["authModal", "accountMenuModal", "transactionModal", "categoryModal", "templateModal", "goalModal", "tagModal", "transactionTagsModal", "pickerModal", "syncChoiceModal"]
+    ["authModal", "accountMenuModal", "transactionModal", "categoryModal", "templateModal", "goalModal", "pickerModal", "syncChoiceModal"]
       .forEach((modalId) => this.closeModal(modalId));
   },
 
-    closeSidebar() {
-      const shell = Utils.$("appShell");
-      if (!shell) {
-        return;
+  isMobileViewport() {
+    return typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
+  },
+
+  setMobileDrawerOpen(open = false) {
+    const shell = Utils.$("appShell");
+    const backdrop = Utils.$("mobileSidebarBackdrop");
+    const toggle = Utils.$("mobileNavToggleBtn");
+    if (!shell || !backdrop || !toggle) {
+      return;
+    }
+    const nextOpen = Boolean(open) && this.isMobileViewport();
+    if (nextOpen) {
+      this.setMobileQuickAddOpen(false);
+    }
+    shell.classList.toggle("is-mobile-drawer-open", nextOpen);
+    backdrop.hidden = !nextOpen;
+    toggle.setAttribute("aria-expanded", String(nextOpen));
+  },
+
+  toggleMobileDrawer(forceValue = null) {
+    const shell = Utils.$("appShell");
+    if (!shell) {
+      return;
+    }
+    const nextOpen = forceValue === null
+      ? !shell.classList.contains("is-mobile-drawer-open")
+      : Boolean(forceValue);
+    this.setMobileDrawerOpen(nextOpen);
+  },
+
+  setMobileQuickAddOpen(open = false) {
+    const shell = Utils.$("appShell");
+    const sheet = Utils.$("mobileQuickSheet");
+    const fab = Utils.$("mobileFabBtn");
+    if (!shell || !sheet || !fab) {
+      return;
+    }
+    const nextOpen = Boolean(open) && this.isMobileViewport();
+    if (nextOpen) {
+      this.setMobileDrawerOpen(false);
+      if ("inert" in sheet) {
+        sheet.inert = false;
       }
+      sheet.hidden = false;
+      sheet.setAttribute("aria-hidden", "false");
+    } else {
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLElement && sheet.contains(activeElement)) {
+        activeElement.blur();
+        App.runAfterNextPaint(() => {
+          try {
+            fab.focus({ preventScroll: true });
+          } catch {
+            fab.focus();
+          }
+        }, 1);
+      }
+      if ("inert" in sheet) {
+        sheet.inert = true;
+      }
+    }
+    shell.classList.toggle("is-mobile-quick-open", nextOpen);
+    fab.setAttribute("aria-expanded", String(nextOpen));
+    if (!nextOpen) {
+      sheet.setAttribute("aria-hidden", "true");
+      sheet.hidden = true;
+    }
+  },
+
+  toggleMobileQuickAdd(forceValue = null) {
+    const shell = Utils.$("appShell");
+    if (!shell) {
+      return;
+    }
+    const nextOpen = forceValue === null
+      ? !shell.classList.contains("is-mobile-quick-open")
+      : Boolean(forceValue);
+    this.setMobileQuickAddOpen(nextOpen);
+  },
+
+  syncResponsiveShell() {
+    if (this.isMobileViewport()) {
+      return;
+    }
+    this.setMobileDrawerOpen(false);
+    this.setMobileQuickAddOpen(false);
+  },
+
+  closeSidebar() {
+    const shell = Utils.$("appShell");
+    if (!shell) {
+      return;
+    }
+    if (this.isMobileViewport()) {
+      this.setMobileDrawerOpen(false);
+      return;
+    }
     if (window.innerWidth <= 1180 && !shell.classList.contains("is-sidebar-collapsed")) {
       this.applySidebarState(true);
     }
@@ -704,6 +985,10 @@ Object.assign(UI, {
     if (!shell) {
       return;
     }
+    if (this.isMobileViewport()) {
+      this.toggleMobileDrawer();
+      return;
+    }
     this.applySidebarState(!shell.classList.contains("is-sidebar-collapsed"));
   },
 
@@ -714,45 +999,78 @@ Object.assign(UI, {
   },
 
   renderSyncState() {
+    const pill = Utils.$("syncPill");
     const dot = Utils.$("syncDot");
     const title = Utils.$("syncTitle");
     const subtitle = Utils.$("syncSubtitle");
+    const meta = Utils.$("syncMetaNote");
+    const login = Auth.getLogin();
+    const hasPending = Sync.hasPendingChanges(login);
+    const applySyncCopy = (nextTitle, nextSubtitle, nextMeta = "") => {
+      title.textContent = nextTitle;
+      subtitle.textContent = nextSubtitle;
+      if (meta) {
+        meta.textContent = nextMeta;
+      }
+      if (pill) {
+        const summary = [nextTitle, nextSubtitle, nextMeta].filter(Boolean).join(". ");
+        pill.title = summary;
+        pill.setAttribute("aria-label", summary);
+      }
+    };
+    const lastSentMeta = Sync.lastSyncedAt ? `Последняя отправка: ${Utils.timeSince(Sync.lastSyncedAt)}` : "";
     dot.className = "sync-pill__dot";
 
     if (!Auth.hasSession()) {
-      title.textContent = "Локальный режим";
-      subtitle.textContent = "Данные хранятся только в браузере";
+      applySyncCopy("На этом устройстве", "Бюджет хранится в браузере", "Подключите аккаунт, чтобы включить облако");
       return;
     }
     if (Auth.isLocalOnly()) {
-      title.textContent = "Локальная сессия";
-      subtitle.textContent = "Данные доступны только в этом браузере, без облачной синхронизации";
+      applySyncCopy("Локальная сессия", "Бюджет доступен только на этом устройстве", "Облако не подключено");
       return;
     }
     if (Sync.status === "syncing") {
       dot.classList.add("is-syncing");
-      title.textContent = `Аккаунт: ${Auth.getLogin()}`;
-      subtitle.textContent = "Идет синхронизация изменений";
+      applySyncCopy(
+        `Аккаунт: ${login}`,
+        "Сверяем изменения с облаком",
+        hasPending
+          ? (lastSentMeta ? `${lastSentMeta} · Есть новые изменения` : "Есть новые изменения")
+          : (lastSentMeta || "Сверяемся с облаком")
+      );
       return;
     }
     if (Sync.status === "offline") {
-      title.textContent = `Аккаунт: ${Auth.getLogin()}`;
-      subtitle.textContent = Sync.lastError
-        ? `${Utils.truncateSingleLine(Sync.lastError, 54)}. Изменения уйдут позже`
-        : "Оффлайн-очередь. Изменения уйдут позже";
+      applySyncCopy(
+        `Аккаунт: ${login}`,
+        "Связь с облаком потеряна",
+        hasPending
+          ? "Изменения сохранены на устройстве и отправятся позже"
+          : (lastSentMeta || "Текущие данные не потеряны")
+      );
       return;
     }
     if (Sync.status === "error") {
       dot.classList.add("is-error");
-      title.textContent = `Аккаунт: ${Auth.getLogin()}`;
-      subtitle.textContent = Sync.lastError
-        ? Utils.truncateSingleLine(Sync.lastError, 66)
-        : "Ошибка синхронизации. Локальные данные сохранены";
+      applySyncCopy(
+        `Аккаунт: ${login}`,
+        "Не получилось обновить данные в облаке",
+        Sync.lastError
+          ? Utils.truncateSingleLine(Sync.lastError, 72)
+          : (lastSentMeta ? `${lastSentMeta} · Данные на устройстве сохранены` : "Данные на устройстве сохранены")
+      );
       return;
     }
     dot.classList.add("is-synced");
-    title.textContent = `Аккаунт: ${Auth.getLogin()}`;
-    subtitle.textContent = Sync.lastSyncedAt ? `Синхронизировано ${Utils.timeSince(Sync.lastSyncedAt)}` : "Синхронизация активна";
+    applySyncCopy(
+      `Аккаунт: ${login}`,
+      hasPending
+        ? "Есть изменения на устройстве, они ждут отправки"
+        : "Все синхронизировано",
+      hasPending
+        ? (lastSentMeta || "Отправка начнется при следующей синхронизации")
+        : (lastSentMeta || "Облако подключено и готово")
+    );
   },
 
   renderHistoryState() {
@@ -782,10 +1100,6 @@ Object.assign(UI, {
     syncAuthFieldState(input) {
       if (!(input instanceof HTMLInputElement)) {
         return;
-      }
-      const control = input.closest(".auth-field__control");
-      if (control instanceof HTMLElement) {
-        control.classList.toggle("is-filled", input.value.trim().length > 0);
       }
       if (input.closest(".password-field")) {
         this.syncPasswordFieldState(input);
@@ -947,17 +1261,34 @@ Object.assign(UI, {
       );
     },
 
-    renderTabs() {
-      document.querySelectorAll(".tab-panel").forEach((panel) => {
-        const isActive = panel.id === Store.activeTab;
-        panel.classList.toggle("is-active", isActive);
-        panel.hidden = !isActive;
+  renderTabs() {
+    const shell = Utils.$("appShell");
+    if (shell) {
+      shell.classList.toggle("is-mobile-budget-tab", Store.activeTab === "overviewTab");
+    }
+    const mobileTopbarTitle = Utils.$("mobileTopbarTitle");
+    if (mobileTopbarTitle) {
+      const titles = {
+        overviewTab: "Бюджет",
+        analyticsTab: "Аналитика",
+        monthsTab: "Месяцы",
+        settingsTab: "Настройки"
+      };
+      mobileTopbarTitle.textContent = titles[Store.activeTab] || "Бюджет";
+    }
+    document.querySelectorAll(".tab-panel").forEach((panel) => {
+      const isActive = panel.id === Store.activeTab;
+      panel.classList.toggle("is-active", isActive);
+      panel.hidden = !isActive;
         panel.setAttribute("aria-hidden", String(!isActive));
       });
-      document.querySelectorAll(".tabbar__btn").forEach((button) => {
-        const isActive = button.dataset.tabTarget === Store.activeTab;
-        button.classList.toggle("is-active", isActive);
-        button.setAttribute("aria-pressed", String(isActive));
-      });
-    },
+    document.querySelectorAll(".tabbar__btn").forEach((button) => {
+      const isActive = button.dataset.tabTarget === Store.activeTab;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+      if (button.classList.contains("mobile-bottom-nav__btn")) {
+        button.setAttribute("aria-current", isActive ? "page" : "false");
+      }
+    });
+  },
 });

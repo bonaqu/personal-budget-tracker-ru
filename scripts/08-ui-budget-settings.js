@@ -146,43 +146,88 @@ Object.assign(UI, {
     const expenseTooltip = `Расходы месяца — сумма всех списаний выбранного месяца, включая долги, обязательные платежи и текущие расходы. Хотелки сюда не попадают, пока вы не перенесете их в расход.`;
     const netTooltip = `Чистый поток — это доходы месяца минус расходы месяца. Положительное значение означает месяц в плюсе, отрицательное — расходов было больше, чем доходов.`;
     const savingsTooltip = `Норма накопления показывает, какая доля дохода осталась после расходов в выбранном месяце. Формула: (доходы - расходы) / доходы * 100%.`;
+    const monthOpsTooltip = `Операций в месяце — сколько строк вы уже добавили в ${Utils.monthLabel(Store.viewMonth).toLowerCase()}. Помогает быстро оценить плотность месяца.`;
+    const averageCheckTooltip = `Средний чек показывает, сколько в среднем уходит на одну расходную операцию в месяце. Помогает заметить, когда покупки становятся тяжелее по сумме.`;
+    const topExpenseTooltip = active.topExpense
+      ? `Крупнейшая трата месяца — ${Utils.formatMoney(active.topExpense.amount)}. ${active.topExpense.description || "Описание не заполнено"}.`
+      : "Крупнейшая трата появится после первой расходной операции в месяце.";
     const nodes = {
       activeMonthLabel: Utils.$("activeMonthLabel"),
       historyBalanceInline: Utils.$("historyBalanceInline"),
       historyOpsInline: Utils.$("historyOpsInline"),
-      monthNetInline: Utils.$("monthNetInline"),
+      monthTopExpenseInline: Utils.$("monthTopExpenseInline"),
       monthFinalInline: Utils.$("monthFinalInline"),
       incomeTotal: Utils.$("incomeTotal"),
       expenseTotal: Utils.$("expenseTotal"),
       netTotal: Utils.$("netTotal"),
       savingsRate: Utils.$("savingsRate"),
+      monthOpsTotal: Utils.$("monthOpsTotal"),
+      averageCheckTotal: Utils.$("averageCheckTotal"),
       heroCaption: Utils.$("heroCaption"),
       incomeHint: Utils.$("incomeHint"),
       expenseHint: Utils.$("expenseHint"),
       netHint: Utils.$("netHint"),
       savingsHint: Utils.$("savingsHint"),
+      monthOpsHint: Utils.$("monthOpsHint"),
+      averageCheckHint: Utils.$("averageCheckHint"),
       todayBtn: Utils.$("todayBtn")
     };
+    const signature = JSON.stringify({
+      month: Store.viewMonth,
+      allTimeBalance: Utils.roundMoney(allTime.balance),
+      allTimeOps: Store.data.transactions.length,
+      income: Utils.roundMoney(active.totals.income),
+      expense: Utils.roundMoney(active.totals.expense),
+      net: Utils.roundMoney(active.totals.balance),
+      savingsRate: Math.round(Math.max(0, active.savingsRate) * 100) / 100,
+      operations: active.operations,
+      averageCheck: Utils.roundMoney(active.averageCheck),
+      finalBalance: Utils.roundMoney(active.finalBalance),
+      topExpense: Utils.roundMoney(active.topExpense?.amount || 0)
+    });
+    if (nodes.todayBtn) {
+      nodes.todayBtn.classList.toggle("is-hidden", isCurrentMonth);
+    }
+    if (this.budgetRenderCache?.summary === signature) {
+      return;
+    }
+    if (this.budgetRenderCache) {
+      this.budgetRenderCache.summary = signature;
+    }
 
     this.setBudgetText(nodes.activeMonthLabel, Utils.monthLabel(Store.viewMonth));
     this.setBudgetText(nodes.historyBalanceInline, Utils.formatMoney(allTime.balance));
     this.setBudgetText(nodes.historyOpsInline, String(Store.data.transactions.length));
-    this.setBudgetText(nodes.monthNetInline, Utils.formatMoney(active.totals.balance));
+    this.setBudgetText(nodes.monthTopExpenseInline, Utils.formatMoney(active.topExpense?.amount || 0));
     this.setBudgetText(nodes.monthFinalInline, Utils.formatMoney(active.finalBalance));
     this.setBudgetText(nodes.incomeTotal, Utils.formatMoney(active.totals.income));
     this.setBudgetText(nodes.expenseTotal, Utils.formatMoney(active.totals.expense));
     this.setBudgetText(nodes.netTotal, Utils.formatMoney(active.totals.balance));
     this.setBudgetText(nodes.savingsRate, Utils.formatPercent(Math.max(0, active.savingsRate)));
+    this.setBudgetText(nodes.monthOpsTotal, String(active.operations));
+    this.setBudgetText(nodes.averageCheckTotal, Utils.formatMoney(active.averageCheck));
     this.setBudgetText(nodes.heroCaption, `${active.operations} операций в ${monthLabelLower} · остаток на конец ${Utils.formatMoney(active.finalBalance)}.`);
-    this.setBudgetText(nodes.incomeHint, active.totals.income ? "Все поступления выбранного месяца" : "Доходов пока нет");
-    this.setBudgetText(nodes.expenseHint, active.totals.expense ? "Списания выбранного месяца" : "Расходов пока нет");
-    this.setBudgetText(nodes.netHint, active.totals.balance >= 0 ? "Месяц пока в плюсе" : "Расходы опережают доходы");
-    this.setBudgetText(nodes.savingsHint, active.totals.income ? "Сколько от дохода осталось после трат" : "Появится после первого дохода");
+    this.setBudgetText(nodes.incomeHint, active.totals.income ? "Все поступления" : "Доходов пока не было");
+    this.setBudgetText(nodes.expenseHint, active.totals.expense ? "Все списания" : "Расходов пока не было");
+    this.setBudgetText(nodes.netHint, active.totals.balance >= 0 ? "Месяц в плюсе" : "Расходы выше доходов");
+    this.setBudgetText(nodes.savingsHint, active.totals.income ? "После всех трат" : "Доходов пока не было");
+    this.setBudgetText(nodes.monthOpsHint, active.operations ? "Строк в журнале" : "Операций пока нет");
+    this.setBudgetText(nodes.averageCheckHint, active.totals.expense ? "Средняя трата" : "Расходов пока нет");
+
+    const snapshotLabels = [
+      [nodes.incomeTotal?.closest(".summary-card")?.querySelector("span"), "Доходы месяца"],
+      [nodes.expenseTotal?.closest(".summary-card")?.querySelector("span"), "Расходы месяца"],
+      [nodes.netTotal?.closest(".summary-card")?.querySelector("span"), "Чистый поток"],
+      [nodes.savingsRate?.closest(".summary-card")?.querySelector("span"), "Норма накопления"],
+      [nodes.monthOpsTotal?.closest(".summary-card")?.querySelector("span"), "Операции месяца"],
+      [nodes.averageCheckTotal?.closest(".summary-card")?.querySelector("span"), "Средний чек"]
+    ];
+    snapshotLabels.forEach(([node, text]) => this.setBudgetText(node, text));
 
     [
       [nodes.historyBalanceInline, balanceTooltip],
       [nodes.historyOpsInline, `Всего операций в системе: ${Store.data.transactions.length}. Это число учитывает все месяцы, а не только текущий.`],
-      [nodes.monthNetInline, netTooltip],
+      [nodes.monthTopExpenseInline, topExpenseTooltip],
       [nodes.monthFinalInline, "Остаток на конец — итоговая сумма выбранного месяца после всех доходов и расходов. Именно она переходит в следующий месяц как авто-старт."],
       [nodes.incomeTotal, incomeTooltip],
       [nodes.incomeHint, incomeTooltip],
@@ -191,7 +236,11 @@ Object.assign(UI, {
       [nodes.netTotal, netTooltip],
       [nodes.netHint, netTooltip],
       [nodes.savingsRate, savingsTooltip],
-      [nodes.savingsHint, savingsTooltip]
+      [nodes.savingsHint, savingsTooltip],
+      [nodes.monthOpsTotal, monthOpsTooltip],
+      [nodes.monthOpsHint, monthOpsTooltip],
+      [nodes.averageCheckTotal, averageCheckTooltip],
+      [nodes.averageCheckHint, averageCheckTooltip]
     ].forEach(([target, text]) => this.setBudgetHelp(target, text));
 
     if (nodes.todayBtn) {
@@ -220,6 +269,23 @@ Object.assign(UI, {
     const minTooltip = `Минимум в месяце — самая низкая точка баланса внутри месяца по дневному тренду. Помогает увидеть, где был самый сильный провал по деньгам.`;
     if (!input || !manualCheck || !badge || !hint) {
       return;
+    }
+    const signature = JSON.stringify({
+      month: Store.viewMonth,
+      manualStart: Boolean(meta.manualStart),
+      manualValue: Utils.roundMoney(meta.start || 0),
+      startBalance: Utils.roundMoney(stats.startBalance),
+      freeCash: Utils.roundMoney(stats.freeCash),
+      finalBalance: Utils.roundMoney(stats.finalBalance),
+      minBalance: Utils.roundMoney(stats.minBalance),
+      minBalanceDay: stats.minBalanceDay || 0,
+      previousMonthKey: stats.previousMonthKey || ""
+    });
+    if (this.budgetRenderCache?.monthPlan === signature) {
+      return;
+    }
+    if (this.budgetRenderCache) {
+      this.budgetRenderCache.monthPlan = signature;
     }
 
     input.disabled = !meta.manualStart;
@@ -255,22 +321,9 @@ Object.assign(UI, {
       [minBalanceHint, minTooltip],
       [Utils.$("monthBalanceChart"), "График показывает движение баланса по дням месяца: синяя линия — накопленный баланс, столбцы — чистое движение денег за день, пунктир — сегодняшний день."]
     ].forEach(([target, text]) => this.setBudgetHelp(target, text));
-    const panel = document.querySelector(".month-plan-panel");
-    const shell = Utils.$("monthTrendShell");
-    const toggleBtn = Utils.$("monthTrendToggleBtn");
     const previewValue = Utils.$("monthTrendPreviewValue");
     const previewMin = Utils.$("monthTrendPreviewMin");
     const previewFinal = Utils.$("monthTrendPreviewFinal");
-    if (panel) {
-      panel.classList.toggle("is-chart-collapsed", this.monthTrendCollapsed);
-    }
-    if (shell) {
-      shell.classList.toggle("is-collapsed", this.monthTrendCollapsed);
-    }
-    if (toggleBtn) {
-      toggleBtn.textContent = this.monthTrendCollapsed ? "Развернуть график" : "Свернуть график";
-      toggleBtn.setAttribute("aria-expanded", String(!this.monthTrendCollapsed));
-    }
     if (previewValue) {
       previewValue.textContent = stats.finalBalance >= stats.startBalance
         ? "Баланс держится выше старта"
@@ -284,6 +337,55 @@ Object.assign(UI, {
     }
   },
 
+  renderBudgetLimits() {
+    const root = Utils.$("budgetLimitList");
+    if (!root) {
+      return;
+    }
+    const limits = Store.budgetLimitProgress(Store.viewMonth).slice(0, 5);
+    const signature = limits.length
+      ? JSON.stringify(limits.map((item) => ({
+        id: item.category.id,
+        spent: item.spent,
+        limit: item.limit,
+        usage: Math.round(item.usage * 10) / 10,
+        exceeded: item.exceeded
+      })))
+      : "empty";
+    if (root.dataset.renderSignature === signature) {
+      return;
+    }
+    if (!limits.length) {
+      root.innerHTML = '<div class="empty-state empty-state--compact">Добавьте лимит в категории, чтобы видеть прогресс прямо в бюджете.</div>';
+      root.dataset.renderSignature = signature;
+      return;
+    }
+    root.innerHTML = limits.map((item) => {
+      const spentText = `${Utils.formatMoney(item.spent)} / ${Utils.formatMoney(item.limit)}`;
+      const progressWidth = `${Math.max(6, Math.min(100, item.progress))}%`;
+      const statusText = item.exceeded
+        ? `Перелимит ${Utils.formatMoney(item.overage)}`
+        : `Осталось ${Utils.formatMoney(Math.max(0, item.remaining))}`;
+      const toneClass = item.exceeded ? " is-exceeded" : (item.usage >= 85 ? " is-tight" : "");
+      return `
+        <article class="budget-limit-card${toneClass}">
+          <div class="budget-limit-card__head">
+            <div class="budget-limit-card__category">
+              <span class="budget-limit-card__swatch" style="background:${item.category.color}"></span>
+              <strong title="${Utils.escapeHtml(item.category.name)}">${Utils.escapeHtml(item.category.name)}</strong>
+            </div>
+            <span class="budget-limit-card__amount">${spentText}</span>
+          </div>
+          <div class="budget-limit-card__bar" aria-hidden="true">
+            <span style="width:${progressWidth}; background:${item.category.color}"></span>
+          </div>
+          <small>${statusText}</small>
+        </article>
+      `;
+    }).join("");
+    root.dataset.renderSignature = signature;
+  },
+
   renderJournal() {
     const sections = {
       incomes: "incomesList",
@@ -292,24 +394,77 @@ Object.assign(UI, {
       expenses: "expensesList",
       wishlist: "wishList"
     };
+    const limitMap = new Map(
+      Store.budgetLimitProgress(Store.viewMonth).map((item) => [item.category.id, item])
+    );
+    const limitSignature = JSON.stringify(
+      Array.from(limitMap.values()).map((item) => ({
+        id: item.category.id,
+        limit: Utils.roundMoney(item.limit),
+        spent: Utils.roundMoney(item.spent),
+        progress: Math.round(item.progress),
+        exceeded: Boolean(item.exceeded)
+      }))
+    );
 
     Object.entries(sections).forEach(([section, elementId]) => {
       const root = Utils.$(elementId);
       if (!root) {
         return;
       }
-        const items = Store.getSectionTransactions(section, Store.viewMonth);
+      const items = Store.getSectionTransactions(section, Store.viewMonth);
       const meta = SECTION_META[section];
+      const sectionSignature = items.length
+        ? JSON.stringify({
+          section,
+          sort: this.getJournalSectionSortMode(section),
+          limits: section === "expenses" ? limitSignature : "",
+          items: items.map((item) => {
+            if (section === "wishlist") {
+              return {
+                id: item.id,
+                desc: item.desc || "",
+                price: Utils.roundMoney(item.price),
+                position: Number(item.position || 0),
+                updatedAt: item.updatedAt || item.createdAt || ""
+              };
+            }
+            const templateBucket = ["incomes", "debts", "recurring"].includes(section)
+              ? Store.getTemplateBucketForTransaction(item)
+              : "";
+            return {
+              id: item.id,
+              date: item.date,
+              amount: Utils.roundMoney(item.amount),
+              description: item.description || "",
+              categoryId: item.categoryId || "",
+              flowKind: item.flowKind || "",
+              position: Number(item.position || 0),
+              favorite: section === "expenses" ? Store.isFavoriteTransaction(item.id) : false,
+              templated: templateBucket ? Store.isTemplateTransaction(item.id, templateBucket) : false,
+              updatedAt: item.updatedAt || item.createdAt || ""
+            };
+          })
+        })
+        : `empty:${section}:${meta.emptyText}`;
+      if (root.dataset.renderSignature === sectionSignature) {
+        return;
+      }
       if (!items.length) {
         root.innerHTML = `<div class="empty-state empty-state--compact">${meta.emptyText}</div>`;
+        root.dataset.renderSignature = sectionSignature;
         return;
       }
       root.innerHTML = items.map((item, index) => {
         if (section === "wishlist") {
           return this.renderWishlistRow(item);
         }
-        return this.renderJournalRow(section, item, { isFirst: index === 0 });
+        return this.renderJournalRow(section, item, {
+          isFirst: index === 0,
+          limitMap
+        });
       }).join("");
+      root.dataset.renderSignature = sectionSignature;
     });
 
     const summary = Utils.$("journalMonthSummary");
@@ -322,13 +477,30 @@ Object.assign(UI, {
 
   renderJournalRow(section, transaction, options = {}) {
     const isFirst = Boolean(options.isFirst);
+    const limitItem = section === "expenses" ? options.limitMap?.get(transaction.categoryId) || null : null;
     const day = Number(transaction.date.slice(-2));
     const category = Store.getCategory(transaction.categoryId);
     const favoriteState = section === "expenses" && Store.isFavoriteTransaction(transaction.id) ? " is-active" : "";
-    const tagsState = transaction.tags?.length ? " is-active" : "";
+    const templateBucket = ["incomes", "debts", "recurring"].includes(section)
+      ? Store.getTemplateBucketForTransaction(transaction)
+      : null;
+    const templateMeta = templateBucket ? getTemplateBucketMeta(templateBucket, transaction.type, transaction.flowKind) : null;
+    const templateState = templateBucket && Store.isTemplateTransaction(transaction.id, templateBucket) ? " is-active" : "";
     const isDebtSection = section === "debts";
     const fullDescription = transaction.description || "";
     const previewDescription = Utils.truncateSingleLine(fullDescription, 62);
+    const limitUsage = limitItem ? Math.round(limitItem.usage) : 0;
+    const limitStateClass = limitItem
+      ? ` has-limit${limitItem.exceeded ? " is-limit-exceeded" : (limitItem.usage >= 85 ? " is-limit-tight" : "")}`
+      : "";
+    const limitStateStyle = limitItem
+      ? ` style="--entry-limit-progress:${Math.max(6, Math.min(100, limitItem.progress))}%; --entry-limit-color:${limitItem.category.color};"`
+      : "";
+    const limitTitle = limitItem
+      ? (limitItem.exceeded
+        ? `Лимит превышен на ${Utils.formatMoney(limitItem.overage)}`
+        : `Лимит: ${Utils.formatMoney(limitItem.spent)} из ${Utils.formatMoney(limitItem.limit)} (${limitUsage}%)`)
+      : (category?.name || "Без категории");
     const hasSort = ["incomes", "debts", "recurring", "expenses"].includes(section) && isFirst;
       const sortMode = hasSort ? this.getJournalSectionSortMode(section) : "date-desc";
       const sortIcon = sortMode === "date-asc" ? "↑" : "↓";
@@ -351,15 +523,21 @@ Object.assign(UI, {
       <article class="entry-row entry-row--${section}" data-entry-id="${transaction.id}" data-section="${section}" draggable="true">
         <label class="entry-field entry-field--day">
           ${dayLabel}
-          <div class="entry-field__control">
-            <input data-journal-field="day" type="number" min="1" max="31" value="${day}">
+          <div class="entry-field__control entry-day-control">
+            <input data-journal-field="day" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="2" aria-label="День месяца" value="${day}">
+            <button class="entry-day-picker entry-control-affix" type="button" data-journal-action="pick-day" data-id="${transaction.id}" aria-label="Выбрать дату" title="Выбрать дату">
+              ${Utils.icon("calendar")}
+            </button>
           </div>
         </label>
 
         <label class="entry-field entry-field--amount">
           <span class="entry-field__label">Сумма</span>
-          <div class="entry-field__control">
-            <input data-journal-field="amount" type="number" step="0.01" min="0" value="${transaction.amount ? transaction.amount : ""}" placeholder="0">
+          <div class="entry-field__control entry-amount-control">
+            <input data-journal-field="amount" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" value="${transaction.amount ? transaction.amount : ""}" placeholder="0">
+            <button class="entry-amount-keypad entry-control-affix" type="button" data-journal-action="open-amount-keypad" data-id="${transaction.id}" data-numpad-field="amount" aria-label="Открыть цифровой блок для суммы" title="Открыть цифровой блок для суммы">
+              ${Utils.icon("dialpad")}
+            </button>
           </div>
         </label>
 
@@ -372,6 +550,7 @@ Object.assign(UI, {
             data-compact="true"
             data-compact-limit="62"
             data-expanded-rows="4"
+            data-fixed-height="true"
             data-fulltext="${Utils.escapeHtml(fullDescription)}"
             rows="1"
             placeholder="Опишите операцию"
@@ -382,7 +561,7 @@ Object.assign(UI, {
 
         <label class="entry-field entry-field--category">
           <span class="entry-field__label">Категория</span>
-          <div class="entry-field__control">
+          <div class="entry-field__control entry-field__control--category${limitStateClass}"${limitStateStyle} title="${Utils.escapeHtml(limitTitle)}">
             ${isDebtSection
               ? `<div class="category-trigger category-trigger--static" title="${Utils.escapeHtml(category?.name || "Долги")}">
                   <span class="category-trigger__swatch" style="background:${category?.color || "#ff7b72"}"></span>
@@ -407,7 +586,7 @@ Object.assign(UI, {
           <span class="entry-field__label entry-field__label--ghost" aria-hidden="true">Действия</span>
           <div class="entry-field__control entry-field__control--actions">
             <div class="entry-actions__buttons">
-            <button class="icon-btn icon-btn--tiny icon-btn--row${tagsState}" type="button" data-journal-action="edit-tags" data-id="${transaction.id}" aria-label="Теги операции" title="${Utils.escapeHtml(transaction.tags?.length ? Utils.formatTags(transaction.tags) : "Без тегов")}">${Utils.icon("tag")}</button>
+            ${templateMeta ? `<button class="icon-btn icon-btn--tiny icon-btn--row${templateState}" type="button" data-journal-action="template" data-template-bucket="${templateBucket}" data-id="${transaction.id}" aria-label="${templateState ? templateMeta.removeLabel : templateMeta.addLabel}" title="${templateState ? templateMeta.removeLabel : templateMeta.addLabel}">${Utils.icon("bookmark")}</button>` : ""}
             ${section === "expenses" ? `<button class="icon-btn icon-btn--tiny icon-btn--row${favoriteState}" type="button" data-journal-action="favorite" data-id="${transaction.id}" aria-label="${favoriteState ? "Убрать из избранного" : "Добавить в избранное"}" title="${favoriteState ? "Убрать из избранного" : "Добавить в избранное"}">${Utils.icon("star")}</button>` : ""}
             <button class="icon-btn icon-btn--tiny icon-btn--row" type="button" data-journal-action="delete" data-id="${transaction.id}" aria-label="Удалить">${Utils.icon("close")}</button>
             </div>
@@ -431,6 +610,7 @@ Object.assign(UI, {
             data-compact="true"
             data-compact-limit="54"
             data-expanded-rows="3"
+            data-fixed-height="true"
             data-fulltext="${Utils.escapeHtml(fullDescription)}"
             rows="1"
             placeholder="Название хотелки"
@@ -441,8 +621,11 @@ Object.assign(UI, {
 
         <label class="entry-field entry-field--amount">
           <span class="entry-field__label">Цена</span>
-          <div class="entry-field__control">
-            <input data-journal-field="wish-amount" type="number" step="0.01" min="0" value="${item.amount ? item.amount : ""}" placeholder="0">
+          <div class="entry-field__control entry-amount-control">
+            <input data-journal-field="wish-amount" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" value="${item.amount ? item.amount : ""}" placeholder="0">
+            <button class="entry-amount-keypad entry-control-affix" type="button" data-journal-action="open-amount-keypad" data-id="${item.id}" data-numpad-field="wish-amount" aria-label="Открыть цифровой блок для цены" title="Открыть цифровой блок для цены">
+              ${Utils.icon("dialpad")}
+            </button>
           </div>
         </label>
 
@@ -464,15 +647,31 @@ Object.assign(UI, {
     const title = Utils.$("settingsQuickTitle");
     const createButton = Utils.$("settingsQuickCreateBtn");
     const statsRoot = Utils.$("settingsQuickStats");
-    const templateSwitch = Utils.$("settingsQuickTemplatesBtn");
+    const recurringSwitch = Utils.$("settingsQuickTemplatesBtn");
+    const incomeSwitch = Utils.$("settingsQuickIncomeBtn");
+    const debtSwitch = Utils.$("settingsQuickDebtBtn");
     const favoriteSwitch = Utils.$("settingsQuickFavoritesBtn");
     const switchRoot = document.querySelector(".settings-quick-switch");
     if (root) {
-      const mode = this.settingsQuickMode === "favorite" ? "favorite" : "template";
-      const items = mode === "favorite" ? Store.data.settings.favorites : Store.data.settings.templates;
-      const titleText = mode === "favorite" ? "Быстрые текущие расходы" : "Обязательные платежи";
-      const createText = mode === "favorite" ? "Новая строка" : "Новый шаблон";
-      const isTemplate = mode === "template";
+      const mode = normalizeSettingsQuickMode(this.settingsQuickMode);
+      this.settingsQuickMode = mode;
+      const templateBucket = getQuickTemplateBucket(mode);
+      const templateMeta = templateBucket ? getTemplateBucketMeta(templateBucket) : null;
+      const isFavorite = mode === "favorite";
+      const items = isFavorite
+        ? Store.sortQuickItems(Store.data.settings.favorites)
+        : Store.getTemplatesByBucket(templateBucket);
+      const titleText = isFavorite ? "Избранные покупки" : templateMeta.title;
+      const createText = isFavorite ? "Новая избранная покупка" : templateMeta.createText;
+      const setSwitchState = (button, isActive, label) => {
+        if (!button) {
+          return;
+        }
+        button.classList.toggle("is-active", isActive);
+        button.setAttribute("aria-pressed", isActive ? "true" : "false");
+        button.setAttribute("aria-label", label);
+        button.setAttribute("aria-controls", "manageQuickList");
+      };
       if (switchRoot) {
         switchRoot.setAttribute("role", "group");
         switchRoot.setAttribute("aria-describedby", "settingsQuickStatus");
@@ -487,34 +686,29 @@ Object.assign(UI, {
         createButton.setAttribute("aria-describedby", "settingsQuickStatus");
         createButton.setAttribute("aria-label", createText);
       }
-      if (templateSwitch) {
-        templateSwitch.classList.toggle("is-active", isTemplate);
-        templateSwitch.setAttribute("aria-pressed", isTemplate ? "true" : "false");
-        templateSwitch.setAttribute("aria-label", "Показать шаблоны");
-        templateSwitch.setAttribute("aria-controls", "manageQuickList");
-      }
-      if (favoriteSwitch) {
-        favoriteSwitch.classList.toggle("is-active", !isTemplate);
-        favoriteSwitch.setAttribute("aria-pressed", !isTemplate ? "true" : "false");
-        favoriteSwitch.setAttribute("aria-label", "Показать избранное");
-        favoriteSwitch.setAttribute("aria-controls", "manageQuickList");
-      }
+      setSwitchState(recurringSwitch, mode === "template-recurring", "Открыть шаблоны регулярных платежей");
+      setSwitchState(incomeSwitch, mode === "template-income", "Открыть шаблоны доходов");
+      setSwitchState(debtSwitch, mode === "template-debt", "Открыть шаблоны долговых обязательств");
+      setSwitchState(favoriteSwitch, isFavorite, "Открыть избранные покупки");
 
       if (statsRoot) {
-        const taggedCount = items.filter((item) => Utils.normalizeTags(item.tags).length).length;
         const categoriesUsed = new Set(items.map((item) => item.categoryId).filter(Boolean)).size;
-        const modeSpecific = mode === "favorite"
+        const readyCount = items.filter((item) => Store.getCategory(item.categoryId)).length;
+        const modeSpecific = isFavorite
           ? items.filter((item) => Utils.parseAmount(item.amount) > 0).length
-          : items.filter((item) => item.flowKind === "recurring" || item.flowKind === "debt").length;
-        const modeSpecificLabel = mode === "favorite" ? "С суммой" : "Регулярные и долги";
+          : readyCount;
+        const modeSpecificLabel = isFavorite ? "С суммой" : "Готово";
+        const averageAmount = items.length
+          ? Utils.formatMoney(items.reduce((sum, item) => sum + Utils.parseAmount(item.amount), 0) / items.length)
+          : "0 ₽";
         statsRoot.innerHTML = `
           <article class="settings-mini-stat">
             <span class="settings-mini-stat__label">Всего</span>
             <strong class="settings-mini-stat__value">${items.length}</strong>
           </article>
           <article class="settings-mini-stat">
-            <span class="settings-mini-stat__label">С тегами</span>
-            <strong class="settings-mini-stat__value">${taggedCount}</strong>
+            <span class="settings-mini-stat__label">Средняя сумма</span>
+            <strong class="settings-mini-stat__value">${averageAmount}</strong>
           </article>
           <article class="settings-mini-stat">
             <span class="settings-mini-stat__label">${modeSpecificLabel}</span>
@@ -530,25 +724,22 @@ Object.assign(UI, {
       root.setAttribute("role", "list");
       root.setAttribute("aria-labelledby", "settingsQuickTitle");
       root.setAttribute("aria-describedby", "settingsQuickStatus");
+      root.scrollTop = 0;
+      root.scrollLeft = 0;
 
       const editAction = mode === "favorite" ? "edit-favorite" : "edit-template";
-      const tagAction = mode === "favorite" ? "edit-favorite-tags" : "edit-template-tags";
       const deleteAction = mode === "favorite" ? "delete-favorite" : "delete-template";
-      const emptyText = mode === "favorite" ? "Избранного пока нет" : "Шаблонов пока нет";
+      const categoryAction = mode === "favorite" ? "pick-favorite-category" : "pick-template-category";
+      const emptyText = mode === "favorite"
+        ? "Сохраните сюда покупки, которые хочется добавлять в бюджет в один клик."
+        : (templateMeta?.emptyText || "Сохраните здесь повторяющиеся сценарии, чтобы не вводить их заново.");
 
       root.innerHTML = items.length
         ? items.map((item) => {
           const category = Store.getCategory(item.categoryId);
-          const tagPreview = Utils.normalizeTags(item.tags);
           const metaType = mode === "favorite"
-            ? "Быстрый расход"
-            : item.flowKind === "recurring"
-              ? "Регулярный платеж"
-              : item.flowKind === "debt"
-                ? "Долг / кредит"
-                : item.type === "income"
-                  ? "Доход"
-                  : "Расход";
+            ? "Избранная покупка"
+            : getTemplateBucketMeta(item.bucket, item.type, item.flowKind).itemLabel;
           return `
           <article class="quick-card${mode === "favorite" ? " quick-card--favorite" : ""}" data-item-id="${item.id}" data-kind="${mode}" role="listitem">
             <div class="quick-card__top">
@@ -564,34 +755,34 @@ Object.assign(UI, {
                 </div>
               </div>
               <div class="quick-card__actions">
-                <button class="chip-btn" type="button" data-setting-action="${editAction}" data-id="${item.id}">Редактировать</button>
-                <button class="chip-btn" type="button" data-setting-action="${tagAction}" data-id="${item.id}">Теги</button>
-                <button class="chip-btn" type="button" data-setting-action="${deleteAction}" data-id="${item.id}">Удалить</button>
+                <button class="chip-btn" type="button" data-setting-action="${categoryAction}" data-id="${item.id}" data-mode="${mode}">Категория</button>
+                <button class="chip-btn" type="button" data-setting-action="${editAction}" data-id="${item.id}" data-mode="${mode}">Редактировать</button>
+                <button class="chip-btn" type="button" data-setting-action="${deleteAction}" data-id="${item.id}" data-mode="${mode}">Удалить</button>
               </div>
-            </div>
-            <div class="quick-card__tags">
-              ${tagPreview.length
-                ? tagPreview.map((tag) => {
-                  const tagMeta = Store.getTagDefinition(tag);
-                  return `<button class="tag-chip tag-chip--soft quick-card__tag" type="button" data-setting-action="${tagAction}" data-id="${item.id}" style="--tag-color:${tagMeta?.color || "#58a6ff"}">${Utils.escapeHtml(tag)}</button>`;
-                }).join("")
-                : '<span class="quick-card__empty">Теги не заданы</span>'}
             </div>
           </article>
         `;
         }).join("")
         : `<div class="empty-state empty-state--compact" role="status">${emptyText}</div>`;
+      this.resetSettingsQuickScroll?.(root);
+        this.scheduleSettingsQuickScrollReset?.([0, 1, 3, 5, 8]);
     }
 
     const exportBtn = Utils.$("exportBtn");
     const importBtn = Utils.$("importBtn");
     const backupNote = Utils.$("backupNote");
-    const exportHelp = "Экспорт создает JSON-бэкап текущих данных аккаунта или локального режима. Нужен для ручного сохранения, переноса данных и восстановления после ошибок.";
-    const importHelp = "Импорт загружает JSON-бэкап в приложение и заменяет текущие локальные данные на содержимое файла. Удобно для восстановления, переноса или первичной загрузки архива.";
+    const exportHelp = "Сохраняет свежую резервную копию бюджета. Удобно для переноса на другое устройство и спокойного восстановления в любой момент.";
+    const importHelp = "Загружает резервную копию и аккуратно заменяет текущие данные содержимым файла. Подходит для переноса и восстановления архива.";
     Utils.setHelpText(exportBtn, exportHelp);
     Utils.setHelpText(importBtn, importHelp);
-    Utils.setHelpText(backupNote, "Бэкап совместим с форматом старой версии: settings, wishlist и месячные блоки YYYY-MM.");
-    App.runAfterNextPaint(() => this.syncSettingsLayout(), 2);
+    Utils.setHelpText(backupNote, "Поддерживаются и резервные копии из прошлых версий приложения, если структура данных совместима.");
+    App.runAfterNextPaint(() => {
+      if (Store.activeTab !== "settingsTab") {
+        return;
+      }
+      this.syncSettingsLayout();
+        this.scheduleSettingsQuickScrollReset?.([0, 1, 3, 5, 8]);
+    }, 2);
 
   },
 
@@ -689,22 +880,42 @@ Object.assign(UI, {
         ? transactions.length
           ? `${transactions.length} операций · ${Utils.formatMoney(totals.balance)} · ${Store.filters.period === "all" ? "вся история" : "активный месяц"}`
           : "Нет операций под текущие фильтры"
-        : "Фильтры не активны. Ниже показан полный бюджет месяца по разделам.";
+        : "Фильтры выключены. Ниже показан весь бюджет месяца по разделам.";
     }
 
     root.classList.toggle("is-hidden", !hasActiveFilters);
     if (!hasActiveFilters) {
+      root.dataset.renderSignature = "hidden";
       root.replaceChildren();
       return;
     }
 
+    const signature = JSON.stringify({
+      filters: {
+        search: Store.filters.search || "",
+        categoryId: Store.filters.categoryId || "all",
+        type: Store.filters.type || "all",
+        period: Store.filters.period || "month",
+        sort: Store.filters.sort || "date-desc",
+        dateFrom: Store.filters.dateFrom || "",
+        dateTo: Store.filters.dateTo || ""
+      },
+      ids: transactions.map((transaction) => `${transaction.id}:${transaction.updatedAt || ""}`)
+    });
+
     if (!transactions.length) {
-      root.replaceChildren(Utils.createElement("div", "empty-state", "Ничего не найдено. Измените фильтры или добавьте новую операцию."));
+      root.dataset.renderSignature = `${signature}:empty`;
+      root.replaceChildren(Utils.createElement("div", "empty-state", "По этим фильтрам пока пусто. Измените условия или добавьте новую операцию."));
       return;
     }
 
+    if (root.dataset.renderSignature === signature) {
+      return;
+    }
+    root.dataset.renderSignature = signature;
+
     // Здесь принципиально не используем innerHTML для пользовательских данных:
-    // описание, категория, дата и теги попадают в DOM только через textContent.
+    // Описание, категория и дата попадают в DOM только через textContent.
     const fragment = document.createDocumentFragment();
     transactions.forEach((transaction) => {
       const category = Store.getCategory(transaction.categoryId);
@@ -729,22 +940,19 @@ Object.assign(UI, {
         Utils.createElement("span", "", flowLabel),
         Utils.createElement("span", "", Utils.timeSince(transaction.updatedAt))
       );
-      if (transaction.tags?.length) {
-        meta.appendChild(Utils.createElement("span", "", Utils.formatTags(transaction.tags)));
-      }
       main.append(title, meta);
 
-      const tagPill = Utils.createElement("div", "tag-pill");
-      const tagDot = Utils.createElement("span", "tag-pill__dot");
-      tagDot.style.background = category?.color || "#8b949e";
-      tagPill.append(tagDot, Utils.createElement("span", "", category?.name || "Без категории"));
+      const categoryPill = Utils.createElement("div", "category-pill");
+      const categoryDot = Utils.createElement("span", "category-pill__dot");
+      categoryDot.style.background = category?.color || "#8b949e";
+      categoryPill.append(categoryDot, Utils.createElement("span", "", category?.name || "Без категории"));
 
       const amount = Utils.createElement("strong", amountClass, `${transaction.type === "income" ? "+" : "-"}${Utils.formatMoney(transaction.amount)}`);
 
       const actions = Utils.createElement("div", "transaction-card__actions");
-      const editButton = Utils.createElement("button", "chip-btn", "Изменить");
+      const editButton = Utils.createElement("button", "chip-btn", "Показать в бюджете");
       editButton.type = "button";
-      editButton.dataset.action = "edit-transaction";
+      editButton.dataset.action = "focus-transaction";
       editButton.dataset.id = transaction.id;
       const deleteButton = Utils.createElement("button", "chip-btn", "Удалить");
       deleteButton.type = "button";
@@ -752,7 +960,7 @@ Object.assign(UI, {
       deleteButton.dataset.id = transaction.id;
       actions.append(editButton, deleteButton);
 
-      card.append(main, tagPill, amount, actions);
+      card.append(main, categoryPill, amount, actions);
       fragment.appendChild(card);
     });
 

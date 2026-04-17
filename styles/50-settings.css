@@ -6,6 +6,7 @@
     "backup quick" !important;
   gap: 12px !important;
   align-items: start !important;
+  overflow-anchor: none;
 }
 
 .settings-panel {
@@ -21,8 +22,10 @@
 .settings-panel--quick {
   grid-area: quick !important;
   display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: 12px;
   align-content: start;
+  overflow-anchor: none;
 }
 
 .settings-panel--backup {
@@ -51,23 +54,28 @@
 
 .settings-quick-switch {
   display: inline-grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
   padding: 4px;
   border-radius: 16px;
   border: 1px solid var(--surface-border-soft);
   background: var(--surface-card-soft);
-  width: fit-content;
+  width: 100%;
 }
 
 .settings-quick-switch__btn {
-  min-height: 34px;
-  padding: 0 12px;
+  display: grid;
+  place-items: center;
+  min-height: 36px;
+  padding: 3px 10px;
   border-radius: 12px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-soft);
   font-weight: 700;
+  font-size: 0.78rem;
+  line-height: 1.02;
+  text-align: center;
   transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
 }
 
@@ -103,6 +111,12 @@
   overflow-wrap: anywhere;
 }
 
+@media (max-width: 1280px) {
+  .settings-quick-switch {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .settings-mini-stat__value {
   font-size: 0.98rem;
   line-height: 1.24;
@@ -114,8 +128,19 @@
 }
 
 .settings-quick-list.settings-scroll-list {
+  display: grid;
+  grid-auto-flow: row;
+  grid-auto-rows: max-content;
   max-height: min(72vh, 780px);
   padding-right: 4px;
+  align-self: start;
+  align-content: start;
+  justify-content: start;
+  justify-items: stretch;
+  place-content: start;
+  overflow-anchor: none;
+  overscroll-behavior: contain;
+  scroll-padding-top: 2px;
 }
 
 .category-item {
@@ -182,10 +207,6 @@
   justify-content: flex-end;
   align-items: center;
   gap: 6px;
-}
-
-.quick-card__tags {
-  padding-top: 2px;
 }
 
 .quick-card__empty {

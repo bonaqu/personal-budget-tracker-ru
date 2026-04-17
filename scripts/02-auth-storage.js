@@ -219,6 +219,14 @@ const Auth = {
     return this.session?.expiresAt || null;
   },
 
+  getSessionAgeMs() {
+    const lastActivityAt = Date.parse(this.session?.lastActivityAt || 0);
+    if (!Number.isFinite(lastActivityAt)) {
+      return Number.POSITIVE_INFINITY;
+    }
+    return Math.max(0, Date.now() - lastActivityAt);
+  },
+
   async setSession(login, token, { localOnly = false } = {}) {
     const now = Date.now();
     this.session = {

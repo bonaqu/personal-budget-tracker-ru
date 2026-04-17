@@ -30,14 +30,11 @@
 .month-overview-stats,
 .settings-category-stats,
 .settings-quick-stats,
-.tag-detail-card__metrics,
 .month-detail__hero,
 .month-detail__body,
 .goal-list,
 .entry-list,
 .quick-list,
-.tag-catalog-list,
-.tag-detail-list,
 .backup-actions,
 .settings-quick-toolbar,
 .budget-search,
@@ -54,8 +51,6 @@
 .month-mini-stat,
 .month-table__result,
 .settings-mini-stat,
-.tag-stat-card,
-.tag-metric-card,
 .month-detail__hero-card {
   padding: var(--space-3) !important;
   gap: var(--space-1) !important;
@@ -64,10 +59,6 @@
 
 .transaction-card,
 .quick-card,
-.tag-catalog-item,
-.tag-detail-card,
-.tag-detail-row,
-.tag-detail-transaction,
 .month-table__row,
 .month-detail__card,
 .category-item,
@@ -81,9 +72,6 @@
 
 .transaction-card,
 .quick-card,
-.tag-catalog-item,
-.tag-detail-row,
-.tag-detail-transaction,
 .month-table__row,
 .category-item,
 .recurring-card,
@@ -99,18 +87,9 @@
   gap: var(--space-2) !important;
 }
 
-.entry-row {
-  padding: var(--space-2) var(--space-3) !important;
-  gap: var(--space-3) !important;
-}
-
 .goal-card__head,
 .goal-card__title,
 .quick-card__body,
-.tag-catalog-item__info,
-.tag-detail-card__head,
-.tag-detail-row__main,
-.tag-detail-transaction__meta,
 .payment-calendar-v2__summary,
 .payment-calendar-v2__event-meta {
   gap: var(--space-2) !important;
@@ -119,13 +98,11 @@
 .goal-card__meta,
 .quick-card__actions,
 .entry-actions__buttons {
-  gap: var(--space-2) !important;
+  gap: 4px !important;
 }
 
 .transaction-card__meta,
-.quick-card__body .transaction-card__meta,
-.tag-catalog-item__meta,
-.tag-detail-row__meta {
+.quick-card__body .transaction-card__meta {
   gap: var(--space-1) var(--space-2) !important;
 }
 
@@ -143,17 +120,14 @@
 .payment-calendar-v2__events,
 .analytics-breakdown__legend,
 .analytics-advanced__pane--recurring .recurring-list,
-.tag-catalog-list,
-.settings-scroll-list,
-.tag-detail-list--scroll {
+.settings-scroll-list {
   padding-right: var(--scrollbar-gap) !important;
   scrollbar-gutter: stable !important;
 }
 
 .categories-editor.settings-scroll-list,
 .settings-quick-list.settings-scroll-list,
-.month-table,
-.tag-catalog-list {
+.month-table {
   padding-top: var(--space-3) !important;
   padding-bottom: var(--scrollbar-gap) !important;
   scroll-padding-top: var(--space-3) !important;
@@ -161,13 +135,11 @@
 
 .categories-editor.settings-scroll-list > *:first-child,
 .settings-quick-list.settings-scroll-list > *:first-child,
-.month-table > *:first-child,
-.tag-catalog-list > *:first-child {
+.month-table > *:first-child {
   margin-top: 0 !important;
 }
 
 .budget-filter-shell,
-.tag-detail,
 .months-panel--detail,
 .settings-panel--backup {
   gap: var(--space-3) !important;
@@ -231,45 +203,6 @@ textarea {
   }
 }
 
-/* Post-audit targeted fixes */
-.entry-row {
-  max-width: 100% !important;
-  min-width: 0 !important;
-}
-
-.journal-section .entry-row:not(.entry-row--wishlist) {
-  grid-template-columns: 64px 104px minmax(0, 1.08fr) minmax(148px, 0.92fr) max-content !important;
-}
-
-.entry-row--wishlist {
-  grid-template-columns: minmax(0, 1fr) 104px auto !important;
-  gap: var(--space-2) !important;
-  padding-inline: var(--space-3) !important;
-}
-
-.entry-row--wishlist .entry-field,
-.entry-row--wishlist .entry-field__control,
-.entry-row--wishlist .compact-textarea {
-  min-width: 0 !important;
-}
-
-.entry-row--wishlist .entry-actions {
-  min-width: 88px !important;
-}
-
-.entry-row--wishlist .entry-actions__buttons .icon-btn--row {
-  width: 40px !important;
-  height: 40px !important;
-}
-
-.entry-field__control--actions {
-  width: auto !important;
-}
-
-.entry-actions__buttons {
-  width: max-content !important;
-}
-
 /* Analytics should paint immediately without heavy glass compositing on first scroll */
 .analytics-panel,
 .payment-calendar--v2,
@@ -319,9 +252,8 @@ textarea {
 .categories-editor.settings-scroll-list,
 .quick-list.settings-scroll-list,
 .settings-quick-list.settings-scroll-list,
-.tag-catalog-list,
-.tag-detail-list--scroll,
-.budget-expense-focus {
+.budget-expense-focus,
+.budget-limit-list {
   scrollbar-width: thin !important;
   scrollbar-color: transparent transparent !important;
 }
@@ -332,9 +264,8 @@ textarea {
 .categories-editor.settings-scroll-list::-webkit-scrollbar,
 .quick-list.settings-scroll-list::-webkit-scrollbar,
 .settings-quick-list.settings-scroll-list::-webkit-scrollbar,
-.tag-catalog-list::-webkit-scrollbar,
-.tag-detail-list--scroll::-webkit-scrollbar,
-.budget-expense-focus::-webkit-scrollbar {
+.budget-expense-focus::-webkit-scrollbar,
+.budget-limit-list::-webkit-scrollbar {
   width: 8px !important;
   height: 8px !important;
 }
@@ -345,9 +276,8 @@ textarea {
 .categories-editor.settings-scroll-list::-webkit-scrollbar-track,
 .quick-list.settings-scroll-list::-webkit-scrollbar-track,
 .settings-quick-list.settings-scroll-list::-webkit-scrollbar-track,
-.tag-catalog-list::-webkit-scrollbar-track,
-.tag-detail-list--scroll::-webkit-scrollbar-track,
-.budget-expense-focus::-webkit-scrollbar-track {
+.budget-expense-focus::-webkit-scrollbar-track,
+.budget-limit-list::-webkit-scrollbar-track {
   background: transparent !important;
   border: 0 !important;
 }
@@ -358,9 +288,8 @@ textarea {
 .categories-editor.settings-scroll-list::-webkit-scrollbar-thumb,
 .quick-list.settings-scroll-list::-webkit-scrollbar-thumb,
 .settings-quick-list.settings-scroll-list::-webkit-scrollbar-thumb,
-.tag-catalog-list::-webkit-scrollbar-thumb,
-.tag-detail-list--scroll::-webkit-scrollbar-thumb,
-.budget-expense-focus::-webkit-scrollbar-thumb {
+.budget-expense-focus::-webkit-scrollbar-thumb,
+.budget-limit-list::-webkit-scrollbar-thumb {
   background: transparent !important;
   border-radius: 999px !important;
   border: 2px solid transparent !important;
@@ -379,12 +308,10 @@ textarea {
 .quick-list.settings-scroll-list:focus-within,
 .settings-quick-list.settings-scroll-list:hover,
 .settings-quick-list.settings-scroll-list:focus-within,
-.tag-catalog-list:hover,
-.tag-catalog-list:focus-within,
-.tag-detail-list--scroll:hover,
-.tag-detail-list--scroll:focus-within,
 .budget-expense-focus:hover,
-.budget-expense-focus:focus-within {
+.budget-expense-focus:focus-within,
+.budget-limit-list:hover,
+.budget-limit-list:focus-within {
   scrollbar-color: color-mix(in srgb, var(--surface-border-soft) 72%, transparent) transparent !important;
 }
 
@@ -400,12 +327,10 @@ textarea {
 .quick-list.settings-scroll-list:focus-within::-webkit-scrollbar-thumb,
 .settings-quick-list.settings-scroll-list:hover::-webkit-scrollbar-thumb,
 .settings-quick-list.settings-scroll-list:focus-within::-webkit-scrollbar-thumb,
-.tag-catalog-list:hover::-webkit-scrollbar-thumb,
-.tag-catalog-list:focus-within::-webkit-scrollbar-thumb,
-.tag-detail-list--scroll:hover::-webkit-scrollbar-thumb,
-.tag-detail-list--scroll:focus-within::-webkit-scrollbar-thumb,
 .budget-expense-focus:hover::-webkit-scrollbar-thumb,
-.budget-expense-focus:focus-within::-webkit-scrollbar-thumb {
+.budget-expense-focus:focus-within::-webkit-scrollbar-thumb,
+.budget-limit-list:hover::-webkit-scrollbar-thumb,
+.budget-limit-list:focus-within::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--surface-border-soft) 72%, transparent) !important;
 }
 
@@ -421,80 +346,11 @@ textarea {
 .quick-list.settings-scroll-list:focus-within::-webkit-scrollbar-track,
 .settings-quick-list.settings-scroll-list:hover::-webkit-scrollbar-track,
 .settings-quick-list.settings-scroll-list:focus-within::-webkit-scrollbar-track,
-.tag-catalog-list:hover::-webkit-scrollbar-track,
-.tag-catalog-list:focus-within::-webkit-scrollbar-track,
-.tag-detail-list--scroll:hover::-webkit-scrollbar-track,
-.tag-detail-list--scroll:focus-within::-webkit-scrollbar-track,
 .budget-expense-focus:hover::-webkit-scrollbar-track,
-.budget-expense-focus:focus-within::-webkit-scrollbar-track {
+.budget-expense-focus:focus-within::-webkit-scrollbar-track,
+.budget-limit-list:hover::-webkit-scrollbar-track,
+.budget-limit-list:focus-within::-webkit-scrollbar-track {
   background: color-mix(in srgb, var(--surface-card-soft) 26%, transparent) !important;
-}
-
-.tag-catalog-item {
-  min-height: 86px !important;
-  padding: 10px 12px !important;
-}
-
-.tag-catalog-item__select,
-.tag-catalog-item__main {
-  gap: 8px !important;
-}
-
-.tag-catalog-item__info {
-  grid-template-rows: auto auto minmax(1.24em, auto) !important;
-  gap: 1px !important;
-}
-
-.tag-catalog-item__usage,
-.tag-catalog-item__note {
-  min-height: 1.24em !important;
-  line-height: 1.24 !important;
-}
-
-.tag-catalog-item__note {
-  display: -webkit-box !important;
-  -webkit-box-orient: vertical !important;
-  -webkit-line-clamp: 1 !important;
-  line-clamp: 1 !important;
-  white-space: normal !important;
-}
-
-.tag-detail {
-  isolation: isolate !important;
-}
-
-.tag-detail-card--hero {
-  overflow: hidden !important;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--tag-color, var(--info)) 8%, transparent), transparent 44%),
-    var(--surface-card) !important;
-}
-
-.tag-detail-card__metrics,
-.tag-detail__content {
-  position: relative;
-  z-index: 1;
-}
-
-/* Tags detail scrollbar should stay quiet without painting a visible track band */
-.tag-detail-list--scroll {
-  padding-right: max(6px, calc(var(--scrollbar-gap) - 2px)) !important;
-  scrollbar-gutter: auto !important;
-  scrollbar-color: transparent transparent !important;
-}
-
-.tag-detail-list--scroll::-webkit-scrollbar-track {
-  background: transparent !important;
-}
-
-.tag-detail-list--scroll:hover,
-.tag-detail-list--scroll:focus-within {
-  scrollbar-color: color-mix(in srgb, var(--surface-border-soft) 68%, transparent) transparent !important;
-}
-
-.tag-detail-list--scroll:hover::-webkit-scrollbar-track,
-.tag-detail-list--scroll:focus-within::-webkit-scrollbar-track {
-  background: transparent !important;
 }
 
 body.is-window-resizing .analytics-grid,
@@ -502,11 +358,24 @@ body.is-window-resizing .analytics-panel,
 body.is-window-resizing .payment-calendar--v2,
 body.is-window-resizing .heatmap-v2,
 body.is-window-resizing .forecast-v3-panel,
+body.is-window-resizing .budget-workspace,
+body.is-window-resizing .hero-strip,
+body.is-window-resizing .hero-strip__headline,
+body.is-window-resizing .budget-side-panel,
+body.is-window-resizing .journal-section,
+body.is-window-resizing .entry-list,
+body.is-window-resizing .entry-row,
+body.is-window-resizing .entry-field__control--category,
+body.is-window-resizing .category-trigger,
+body.is-window-resizing .budget-limit-card,
+body.is-window-resizing .summary-card,
+body.is-window-resizing .legend-chip,
 body.is-window-resizing .goal-card,
 body.is-window-resizing .insight-card,
 body.is-window-resizing .deep-stat {
   transition: none !important;
   animation: none !important;
+  backdrop-filter: none !important;
 }
 
 /* Final sidebar authoritative layout */
@@ -719,5 +588,196 @@ body.is-window-resizing .deep-stat {
   justify-content: center !important;
   align-items: center !important;
   border-radius: 16px !important;
+}
+
+/* Final global visual system */
+:is(
+  .hero-fact,
+  .summary-card,
+  .month-overview-stat,
+  .month-mini-stat,
+  .month-table__result,
+  .settings-mini-stat,
+  .month-detail__hero-card,
+  .month-detail__card,
+  .transaction-card,
+  .quick-card,
+  .category-item,
+  .recurring-card,
+  .payment-calendar-v2__event,
+  .forecast-v3__category,
+  .goal-card,
+  .goal-card--adder,
+  .budget-filter-shell,
+  .account-choice__card
+) {
+  border-color: color-mix(in srgb, var(--surface-border-soft) 90%, rgba(255, 255, 255, 0.04)) !important;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--surface-glass-highlight) 92%, transparent), transparent 56%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-card-soft) 88%, rgba(255, 255, 255, 0.014)), color-mix(in srgb, var(--surface-card) 96%, transparent)) !important;
+  box-shadow:
+    inset 0 1px 0 var(--surface-glass-highlight-soft),
+    var(--shadow-sm) !important;
+}
+
+:is(
+  .sidebar__card,
+  .sidebar__utility-btn,
+  .sidebar__account-btn,
+  .sync-pill,
+  .tabbar__btn
+) {
+  border-color: color-mix(in srgb, var(--surface-border-soft) 88%, rgba(255, 255, 255, 0.05)) !important;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--surface-glass-highlight) 88%, transparent), transparent 58%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-card-soft) 88%, rgba(255, 255, 255, 0.016)), color-mix(in srgb, var(--surface-card) 96%, transparent)) !important;
+  box-shadow:
+    inset 0 1px 0 var(--surface-glass-highlight-soft),
+    0 10px 22px rgba(8, 11, 18, 0.12) !important;
+}
+
+:is(
+  .hero-fact,
+  .summary-card,
+  .month-overview-stat,
+  .month-mini-stat,
+  .month-table__result,
+  .settings-mini-stat,
+  .month-detail__hero-card,
+  .month-detail__card,
+  .transaction-card,
+  .quick-card,
+  .category-item,
+  .recurring-card,
+  .payment-calendar-v2__event,
+  .forecast-v3__category,
+  .goal-card,
+  .goal-card--adder,
+  .budget-filter-shell,
+  .account-choice__card,
+  .sidebar__card,
+  .sidebar__utility-btn,
+  .sidebar__account-btn,
+  .sync-pill,
+  .tabbar__btn
+):hover {
+  box-shadow:
+    inset 0 1px 0 var(--surface-glass-highlight),
+    0 14px 30px rgba(8, 11, 18, 0.16) !important;
+}
+
+:is(
+  .settings-scroll-list,
+  .goal-list,
+  .forecast-v3__list,
+  .payment-calendar-v2__events,
+  .analytics-breakdown__legend,
+  .month-table,
+  .categories-editor.settings-scroll-list,
+  .quick-list.settings-scroll-list,
+  .settings-quick-list.settings-scroll-list,
+  .budget-expense-focus,
+  .transactions-list
+) {
+  scrollbar-width: thin !important;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track) !important;
+}
+
+:is(
+  .settings-scroll-list,
+  .goal-list,
+  .forecast-v3__list,
+  .payment-calendar-v2__events,
+  .analytics-breakdown__legend,
+  .month-table,
+  .categories-editor.settings-scroll-list,
+  .quick-list.settings-scroll-list,
+  .settings-quick-list.settings-scroll-list,
+  .budget-expense-focus,
+  .transactions-list
+)::-webkit-scrollbar {
+  width: 10px !important;
+  height: 10px !important;
+}
+
+:is(
+  .settings-scroll-list,
+  .goal-list,
+  .forecast-v3__list,
+  .payment-calendar-v2__events,
+  .analytics-breakdown__legend,
+  .month-table,
+  .categories-editor.settings-scroll-list,
+  .quick-list.settings-scroll-list,
+  .settings-quick-list.settings-scroll-list,
+  .budget-expense-focus,
+  .transactions-list
+)::-webkit-scrollbar-track {
+  background: var(--scrollbar-track) !important;
+  border-radius: 999px !important;
+}
+
+:is(
+  .settings-scroll-list,
+  .goal-list,
+  .forecast-v3__list,
+  .payment-calendar-v2__events,
+  .analytics-breakdown__legend,
+  .month-table,
+  .categories-editor.settings-scroll-list,
+  .quick-list.settings-scroll-list,
+  .settings-quick-list.settings-scroll-list,
+  .budget-expense-focus,
+  .transactions-list
+)::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb) !important;
+  border-radius: 999px !important;
+  border: 2px solid transparent !important;
+  background-clip: padding-box !important;
+}
+
+:is(
+  .settings-scroll-list,
+  .goal-list,
+  .forecast-v3__list,
+  .payment-calendar-v2__events,
+  .analytics-breakdown__legend,
+  .month-table,
+  .categories-editor.settings-scroll-list,
+  .quick-list.settings-scroll-list,
+  .settings-quick-list.settings-scroll-list,
+  .budget-expense-focus,
+  .transactions-list
+):hover::-webkit-scrollbar-thumb,
+:is(
+  .settings-scroll-list,
+  .goal-list,
+  .forecast-v3__list,
+  .payment-calendar-v2__events,
+  .analytics-breakdown__legend,
+  .month-table,
+  .categories-editor.settings-scroll-list,
+  .quick-list.settings-scroll-list,
+  .settings-quick-list.settings-scroll-list,
+  .budget-expense-focus,
+  .transactions-list
+):focus-within::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-hover) !important;
+}
+
+:is(
+  .settings-scroll-list,
+  .goal-list,
+  .forecast-v3__list,
+  .payment-calendar-v2__events,
+  .analytics-breakdown__legend,
+  .month-table,
+  .categories-editor.settings-scroll-list,
+  .quick-list.settings-scroll-list,
+  .settings-quick-list.settings-scroll-list,
+  .budget-expense-focus,
+  .transactions-list
+):active::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb-active) !important;
 }
 

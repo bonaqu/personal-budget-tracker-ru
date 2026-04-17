@@ -9,7 +9,7 @@ const Api = {
     return Object.assign(error, details);
   },
 
-  getMessage(error, fallback = "Произошла ошибка при обращении к API") {
+  getMessage(error, fallback = "Не удалось связаться с сервером") {
     if (error instanceof Error && error.message?.trim()) {
       return error.message.trim();
     }
@@ -21,15 +21,15 @@ const Api = {
       return serverMessage;
     }
     const fallback = {
-      400: "Некорректный запрос к API",
+      400: "Сервис получил некорректный запрос",
       401: "Неверный логин или пароль",
       403: "Нет доступа к данным аккаунта",
-      404: "API не найдено",
+      404: "Сервис не найден",
       408: "Сервер не ответил вовремя",
       409: "Конфликт данных. Попробуйте повторить действие",
       429: "Слишком много попыток. Попробуйте позже",
       500: "Внутренняя ошибка сервера",
-      502: "Промежуточный сервис API вернул ошибку",
+      502: "Сервис временно вернул ошибку",
       503: "Сервис временно недоступен",
       504: "Сервер не ответил вовремя"
     };
@@ -102,7 +102,7 @@ const Api = {
     const normalized = error?.name === "AbortError"
       ? this.createError("TIMEOUT", "Сервер не ответил вовремя", { endpoint, method })
       : error instanceof TypeError
-        ? this.createError("NETWORK_UNAVAILABLE", "Нет соединения с интернетом или API недоступно", { endpoint, method })
+        ? this.createError("NETWORK_UNAVAILABLE", "Нет соединения с интернетом или сервер недоступен", { endpoint, method })
         : this.createError("REQUEST_FAILED", this.getMessage(error), {
           endpoint,
           method,
@@ -158,27 +158,59 @@ const Api = {
   },
 
   async login(login, password) {
-    const response = await this.request("/login", "POST", { login, password });
-    const payload = await response.json().catch(() => ({}));
-    const token = payload.token || payload.data?.token || password;
-    this.capabilities.supportsBearerAuth = Boolean(payload.token || payload.data?.token);
-    return { ok: true, token };
+    const delays = [0, 500, 1400];
+    let lastError = null;
+    for (let attempt = 0; attempt < delays.length; attempt += 1) {
+      if (delays[attempt] > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+      }
+      try {
+        const response = await this.request("/login", "POST", { login, password });
+        const payload = await response.json().catch(() => ({}));
+        const token = payload.token || payload.data?.token || password;
+        this.capabilities.supportsBearerAuth = Boolean(payload.token || payload.data?.token);
+        return { ok: true, token };
+      } catch (error) {
+        lastError = error;
+        if (!this.isRetryable(error) || attempt === delays.length - 1) {
+          throw error;
+        }
+      }
+    }
+    throw lastError || this.createError("REQUEST_FAILED", "Не удалось выполнить вход");
   },
 
   async register(login, password) {
-    const response = await this.request("/register", "POST", { login, password });
-    const payload = await response.json().catch(() => ({}));
-    const token = payload.token || payload.data?.token || password;
-    this.capabilities.supportsBearerAuth = Boolean(payload.token || payload.data?.token);
-    return { ok: true, token };
+    const delays = [0, 650, 1600];
+    let lastError = null;
+    for (let attempt = 0; attempt < delays.length; attempt += 1) {
+      if (delays[attempt] > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+      }
+      try {
+        const response = await this.request("/register", "POST", { login, password });
+        const payload = await response.json().catch(() => ({}));
+        const token = payload.token || payload.data?.token || password;
+        this.capabilities.supportsBearerAuth = Boolean(payload.token || payload.data?.token);
+        return { ok: true, token };
+      } catch (error) {
+        lastError = error;
+        if (!this.isRetryable(error) || attempt === delays.length - 1) {
+          throw error;
+        }
+      }
+    }
+    throw lastError || this.createError("REQUEST_FAILED", "Не удалось создать аккаунт");
   },
 
   isRetryable(error) {
     const code = error?.code || "";
+    const serverCode = String(error?.payload?.code || "");
     return code === "TIMEOUT" ||
       code === "NETWORK_UNAVAILABLE" ||
       code === "REQUEST_FAILED" ||
       code === "HTTP_408" ||
+      serverCode === "STORAGE_CONFLICT" ||
       code === "HTTP_429" ||
       code === "HTTP_500" ||
       code === "HTTP_502" ||
@@ -186,10 +218,18 @@ const Api = {
       code === "HTTP_504";
   },
 
+  isAuthSessionError(error) {
+    const code = String(error?.code || "");
+    const serverCode = String(error?.payload?.code || "");
+    return code === "HTTP_401" ||
+      code === "HTTP_403" ||
+      serverCode === "INVALID_SESSION" ||
+      serverCode === "TOKEN_REQUIRED" ||
+      serverCode === "USER_NOT_FOUND";
+  },
+
   async load(login, token = null) {
-    const headers = this.capabilities.supportsBearerAuth && token
-      ? { Authorization: `Bearer ${token}` }
-      : {};
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const response = await this.request(`/load?login=${encodeURIComponent(login)}`, "GET", null, { headers });
     const payload = await response.json();
     if (payload && typeof payload === "object" && Object.prototype.hasOwnProperty.call(payload, "ok")) {
@@ -198,10 +238,38 @@ const Api = {
     return payload;
   },
 
+  async confirmSession(login, token) {
+    if (!login || !token) {
+      return false;
+    }
+    const headers = { Authorization: `Bearer ${token}` };
+    const delays = [0, 350, 900];
+    let lastError = null;
+    for (let attempt = 0; attempt < delays.length; attempt += 1) {
+      if (delays[attempt] > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+      }
+      try {
+        await this.request(`/load?login=${encodeURIComponent(login)}`, "GET", null, {
+          headers,
+          timeout: 7000
+        });
+        return true;
+      } catch (error) {
+        lastError = error;
+        if (!this.isAuthSessionError(error) && !this.isRetryable(error)) {
+          throw error;
+        }
+      }
+    }
+    if (lastError && !this.isAuthSessionError(lastError)) {
+      throw lastError;
+    }
+    return false;
+  },
+
   async save(login, token, data) {
-    const headers = this.capabilities.supportsBearerAuth && token
-      ? { Authorization: `Bearer ${token}` }
-      : {};
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const payload = {
       login,
       password: token,
@@ -230,16 +298,35 @@ const Api = {
     if (!login || !token) {
       return;
     }
-    const headers = this.capabilities.supportsBearerAuth
-      ? { Authorization: `Bearer ${token}` }
-      : {};
-    try {
-      await this.request("/logout", "POST", { login, password: token }, { timeout: 5000, headers });
-    } catch (error) {
-      if (error?.code === "HTTP_404" || error?.code === "HTTP_405") {
-        return;
+    const headers = { Authorization: `Bearer ${token}` };
+    const delays = [0, 450, 1200];
+    let lastError = null;
+    for (let attempt = 0; attempt < delays.length; attempt += 1) {
+      if (delays[attempt] > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
       }
-      throw error;
+      try {
+        await this.request("/logout", "POST", { login, password: token }, { timeout: 5000, headers });
+        return;
+      } catch (error) {
+        lastError = error;
+        const serverCode = String(error?.payload?.code || "");
+        if (
+          error?.code === "HTTP_404" ||
+          error?.code === "HTTP_405" ||
+          serverCode === "INVALID_SESSION" ||
+          serverCode === "TOKEN_REQUIRED" ||
+          serverCode === "USER_NOT_FOUND"
+        ) {
+          return;
+        }
+        const isConflict = error?.code === "HTTP_409" || serverCode === "STORAGE_CONFLICT";
+        if ((isConflict || this.isRetryable(error)) && attempt < delays.length - 1) {
+          continue;
+        }
+        throw error;
+      }
     }
+    throw lastError || this.createError("REQUEST_FAILED", "Не удалось завершить сессию");
   }
 };

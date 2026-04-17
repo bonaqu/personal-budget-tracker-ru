@@ -31,7 +31,7 @@ const Sync = {
       }
     });
     window.addEventListener("offline", () => {
-      this.lastError = "Нет соединения с интернетом";
+      this.lastError = "РќРµС‚ СЃРѕРµРґРёРЅРµРЅРёСЏ СЃ РёРЅС‚РµСЂРЅРµС‚РѕРј";
       this.status = Auth.isAuthenticated() ? "offline" : "local";
       UI.renderSyncState();
     });
@@ -51,6 +51,11 @@ const Sync = {
     const delay = backoff[this.retryAttempt - 1];
     this.clearRetry();
     this.retryTimer = setTimeout(() => this.processQueue(true), delay);
+  },
+
+  hasPendingChanges(login = Auth.getLogin()) {
+    const pending = Storage.loadPending();
+    return Boolean(login && pending?.login === login);
   },
 
   queueSync() {
@@ -94,7 +99,7 @@ const Sync = {
       return;
     }
     if (!navigator.onLine) {
-      this.lastError = "Нет соединения с интернетом";
+      this.lastError = "РќРµС‚ СЃРѕРµРґРёРЅРµРЅРёСЏ СЃ РёРЅС‚РµСЂРЅРµС‚РѕРј";
       this.status = "offline";
       UI.renderSyncState();
       return;
@@ -127,7 +132,60 @@ const Sync = {
       this.lastError = "";
       this.status = "synced";
     } catch (error) {
-      this.lastError = Api.getMessage(error, "Не удалось синхронизировать изменения");
+      this.lastError = Api.getMessage(error, "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°С‚СЊ РёР·РјРµРЅРµРЅРёСЏ");
+      if (Api.isAuthSessionError(error)) {
+        let sessionStillValid = false;
+        try {
+          sessionStillValid = await Api.confirmSession(pending.login, pending.token);
+        } catch (confirmError) {
+          this.lastError = Api.getMessage(confirmError, this.lastError);
+          Diagnostics.report("sync:session-confirm-failed", {
+            code: confirmError?.code || null,
+            message: this.lastError
+          }, String(confirmError?.code || "").startsWith("HTTP_4") ? "warning" : "error");
+          if (Api.isRetryable(confirmError)) {
+            this.scheduleRetry();
+            this.status = confirmError?.code === "NETWORK_UNAVAILABLE" || confirmError?.code === "TIMEOUT"
+              ? "offline"
+              : "error";
+            return;
+          }
+        }
+
+        if (sessionStillValid) {
+          this.lastError = "РћР±Р»Р°РєРѕ РµС‰Рµ РїРѕРґС‚РІРµСЂР¶РґР°РµС‚ РЅРѕРІСѓСЋ СЃРµСЃСЃРёСЋ. РџРѕРІС‚РѕСЂСЏРµРј СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёСЋ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё.";
+          this.status = "syncing";
+          Diagnostics.report("sync:session-confirmed", {
+            login: pending.login,
+            forceProbe
+          }, "warning");
+          this.scheduleRetry();
+          return;
+        }
+
+        const freshSession = typeof Auth.getSessionAgeMs === "function" && Auth.getSessionAgeMs() <= 15000;
+        if (freshSession) {
+          this.lastError = "Новая сессия еще подтверждается облаком. Повторяем синхронизацию автоматически.";
+          this.status = "syncing";
+          Diagnostics.report("sync:session-fresh-retry", {
+            login: pending.login,
+            forceProbe,
+            sessionAgeMs: Auth.getSessionAgeMs()
+          }, "warning");
+          this.scheduleRetry();
+          return;
+        }
+
+        this.status = "error";
+        this.isSyncing = false;
+        UI.renderSyncState();
+        if (typeof App !== "undefined" && typeof App.handleRemoteSessionInvalid === "function") {
+          App.handleRemoteSessionInvalid({
+            message: "РЎРµСЃСЃРёСЏ Р°РєРєР°СѓРЅС‚Р° РёСЃС‚РµРєР»Р° РёР»Рё Р±РѕР»СЊС€Рµ РЅРµ РґРµР№СЃС‚РІСѓРµС‚. Р’РѕР№РґРёС‚Рµ СЃРЅРѕРІР°, С‡С‚РѕР±С‹ РїСЂРѕРґРѕР»Р¶РёС‚СЊ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёСЋ."
+          });
+        }
+        return;
+      }
       Diagnostics.report("sync:failed", {
         code: error?.code || null,
         message: this.lastError,
