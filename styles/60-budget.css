@@ -1111,8 +1111,7 @@
 
 .month-plan-panel::before,
 .budget-filter-shell::before,
-.journal-section::before,
-.entry-row::before {
+.journal-section::before {
   content: "";
   position: absolute;
   inset: 1px 1px auto;
@@ -1138,7 +1137,6 @@
 
 .entry-row {
   position: relative;
-  isolation: isolate;
   border-color: color-mix(in srgb, var(--surface-border-soft) 88%, rgba(255, 255, 255, 0.06));
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface-card) 97%, rgba(255, 255, 255, 0.03)), transparent 72%),

@@ -1312,6 +1312,14 @@
   line-height: 40px !important;
 }
 
+.entry-row::before {
+  display: none !important;
+}
+
+.entry-row {
+  isolation: auto !important;
+}
+
 @media (max-width: 768px) {
   .journal-section__head {
     gap: 8px !important;
