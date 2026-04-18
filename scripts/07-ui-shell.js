@@ -1000,7 +1000,7 @@ Object.assign(UI, {
         pill.setAttribute("aria-label", summary);
       }
     };
-    const lastSentMeta = Sync.lastSyncedAt ? `Последняя отправка: ${Utils.timeSince(Sync.lastSyncedAt)}` : "";
+    const lastSentMeta = Sync.lastSyncedAt ? `Последняя синхронизация: ${Utils.timeSince(Sync.lastSyncedAt)}` : "";
     dot.className = "sync-pill__dot";
 
     if (!Auth.hasSession()) {

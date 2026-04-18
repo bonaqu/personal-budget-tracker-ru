@@ -1450,6 +1450,11 @@ const Store = {
     }
     if (Auth.isAuthenticated()) {
       Sync.queueSync();
+      if (typeof App !== "undefined" && typeof App.runAfterNextPaint === "function") {
+        App.runAfterNextPaint(() => {
+          Sync.processQueue(true).catch(() => {});
+        }, 2);
+      }
     }
     UI.renderApp();
   },
@@ -1525,12 +1530,15 @@ const Store = {
         finalBalance: Utils.roundMoney(stats.finalBalance)
       };
       this.getTransactions("month", monthKey).slice().sort((a, b) => a.position - b.position).forEach((transaction) => {
+        const categoryName = this.getCategory(transaction.categoryId)?.name || "";
         const item = {
           id: transaction.id,
           day: Number(transaction.date.slice(-2)),
           amount: Utils.roundMoney(transaction.amount),
           desc: transaction.description,
-          category: this.getCategory(transaction.categoryId)?.name || "",
+          category: categoryName,
+          tag: categoryName,
+          categoryId: transaction.categoryId,
           position: transaction.position,
           createdAt: transaction.createdAt,
           updatedAt: transaction.updatedAt

@@ -156,8 +156,8 @@ const App = {
         ? (hasPending
           ? "На этом устройстве есть новые изменения. Мы уже держим их в очереди и скоро отправим в облако."
           : (Sync.lastSyncedAt
-            ? `Все синхронизировано. Последняя отправка была ${Utils.timeSince(Sync.lastSyncedAt)}.`
-            : "Аккаунт подключен. Бюджет уже доступен в облаке."))
+            ? `Все синхронизировано. Последняя синхронизация была ${Utils.timeSince(Sync.lastSyncedAt)}.`
+            : "Аккаунт подключен. Бюджет уже синхронизирован с облаком."))
         : (Sync.status === "syncing"
           ? "Сейчас отправляем последние изменения в облако."
           : (Sync.status === "offline"
@@ -327,8 +327,8 @@ const App = {
         clearGuest: false,
         syncUp: !sameAsRemote,
         toastMessage: sameAsRemote
-          ? "Аккаунт подключен. Бюджет загружен из облака"
-          : "Аккаунт подключен. Данные на устройстве сверены с облаком"
+          ? "Аккаунт подключен. Бюджет синхронизирован из облака"
+          : "Аккаунт подключен. Данные на устройстве синхронизированы с облаком"
       });
       return;
     }
@@ -337,7 +337,7 @@ const App = {
       await this.applyAuthenticatedData(guestData, {
         clearGuest: true,
         syncUp: true,
-        toastMessage: "Аккаунт подключен. Данные с устройства отправлены в облако"
+        toastMessage: "Аккаунт подключен. Данные с устройства синхронизированы с облаком"
       });
       return;
     }
@@ -346,7 +346,7 @@ const App = {
       await this.applyAuthenticatedData(remoteData, {
         clearGuest: true,
         syncUp: false,
-        toastMessage: "Аккаунт подключен. Данные уже совпадают"
+        toastMessage: "Аккаунт подключен. Данные уже синхронизированы"
       });
       return;
     }
@@ -356,7 +356,7 @@ const App = {
       await this.applyAuthenticatedData(guestData, {
         clearGuest: true,
         syncUp: true,
-        toastMessage: "Оставили данные с устройства и отправили их в облако"
+        toastMessage: "Оставили данные с устройства и синхронизировали их с облаком"
       });
       return;
     }
@@ -364,7 +364,7 @@ const App = {
       await this.applyAuthenticatedData(remoteData, {
         clearGuest: true,
         syncUp: false,
-        toastMessage: "Данные на устройстве заменены данными из аккаунта"
+        toastMessage: "Данные на устройстве синхронизированы с аккаунтом"
       });
       return;
     }
@@ -547,7 +547,7 @@ const App = {
         Storage.saveCache(null, defaultData());
       }
       if (!silent) {
-        UI.toast("Аккаунт подключен. Данные из облака загружены", "success");
+        UI.toast("Аккаунт подключен. Бюджет синхронизирован из облака", "success");
       }
 
       if (!isSemanticallySameData(remoteData, merged)) {

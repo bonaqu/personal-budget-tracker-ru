@@ -1163,7 +1163,7 @@ function legacyCategoryKey(value) {
 }
 
 function legacyCategoryName(item) {
-  return item?.category || "";
+  return String(item?.category ?? item?.tag ?? "").trim();
 }
 
 function collectLegacyCategoryUsage(raw) {

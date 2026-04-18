@@ -4,20 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 4317",
-    "preview": "vite preview --host 127.0.0.1 --port 4317",
-    "audit:ui": "node scripts/audit-ui.js",
-    "audit:sync:live": "node scripts/audit-sync-live.js",
-    "audit:sync:isolation": "node scripts/audit-sync-account-isolation.js",
-    "audit:worker-ref": "node scripts/audit-worker-reference.js",
-    "test:ui": "playwright test",
-    "test:ui:budget": "playwright test tests/budget-ui.spec.js",
-    "test:ui:smoke": "playwright test tests/smoke.spec.js",
-    "test:ui:headed": "playwright test --headed",
-    "pw:install": "playwright install chromium"
+    "preview": "vite preview --host 127.0.0.1 --port 4317"
   },
   "devDependencies": {
-    "@playwright/test": "^1.54.2",
-    "iconv-lite": "^0.7.2",
     "vite": "^7.1.0"
   }
 }
