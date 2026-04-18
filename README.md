@@ -130,8 +130,9 @@
 
 **PROPRIETARY**
 
-Copyright © 2025 — 2026  
-**Project Author**
+Copyright © 2025 — 2026
+Евгений
+GitHub: https://github.com/bonaqu
 
 Все права защищены.
 
@@ -143,7 +144,7 @@ Copyright © 2025 — 2026
 без письменного разрешения автора.
 
 📧 По вопросам коммерческого лицензирования:  
-**contact@example.invalid**
+**bonaqu@morimoloves.ru**
 
 Полный текст лицензии см. в файле [LICENSE](LICENSE).
 
