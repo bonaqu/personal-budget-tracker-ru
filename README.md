@@ -130,7 +130,9 @@
 **PROPRIETARY**
 
 Copyright © 2025 — 2026
+
 Евгений
+
 GitHub: https://github.com/bonaqu
 
 Все права защищены.
