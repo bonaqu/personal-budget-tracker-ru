@@ -263,10 +263,6 @@ Object.assign(UI, {
     const finalBalanceHint = Utils.$("monthFinalBalanceHint");
     const minBalance = Utils.$("monthMinBalance");
     const minBalanceHint = Utils.$("monthMinBalanceHint");
-    const startTooltip = `Начальный остаток — точка, с которой стартует расчет месяца. В авто-режиме он подтягивается из остатка на конец предыдущего месяца, а в ручном режиме берется из вашего ввода.`;
-    const freeTooltip = `Свободно — расчетный остаток после всех операций выбранного месяца. Он учитывает начальный остаток и все доходы/расходы месяца.`;
-    const finalTooltip = `Остаток на конец — итоговая сумма после всех операций месяца. Именно это значение переносится как авто-старт на следующий месяц.`;
-    const minTooltip = `Минимум в месяце — самая низкая точка баланса внутри месяца по дневному тренду. Помогает увидеть, где был самый сильный провал по деньгам.`;
     if (!input || !manualCheck || !badge || !hint) {
       return;
     }
@@ -309,17 +305,28 @@ Object.assign(UI, {
     this.setBudgetText(minBalanceHint, stats.minBalanceDay ? `Минимум приходится на ${stats.minBalanceDay} число` : "Без просадки ниже стартовой точки");
 
     [
-      [input, startTooltip],
-      [hint, startTooltip],
-      [startResolved, startTooltip],
-      [startResolvedHint, startTooltip],
-      [freeCash, freeTooltip],
-      [freeCashHint, freeTooltip],
-      [finalBalance, finalTooltip],
-      [finalBalanceHint, finalTooltip],
-      [minBalance, minTooltip],
-      [minBalanceHint, minTooltip]
-    ].forEach(([target, text]) => this.setBudgetHelp(target, text));
+      input,
+      hint,
+      startResolved,
+      startResolvedHint,
+      freeCash,
+      freeCashHint,
+      finalBalance,
+      finalBalanceHint,
+      minBalance,
+      minBalanceHint
+    ].forEach((target) => {
+      if (target instanceof HTMLElement) {
+        target.removeAttribute("title");
+        target.removeAttribute("aria-label");
+        const statCard = target.closest("article");
+        if (statCard instanceof HTMLElement) {
+          statCard.removeAttribute("title");
+          statCard.removeAttribute("aria-label");
+          statCard.classList.remove("has-help");
+        }
+      }
+    });
     const monthBalanceChart = Utils.$("monthBalanceChart");
     if (monthBalanceChart instanceof HTMLElement) {
       monthBalanceChart.removeAttribute("title");
