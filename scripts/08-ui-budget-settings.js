@@ -320,6 +320,17 @@ Object.assign(UI, {
       [minBalance, minTooltip],
       [minBalanceHint, minTooltip]
     ].forEach(([target, text]) => this.setBudgetHelp(target, text));
+    const monthBalanceChart = Utils.$("monthBalanceChart");
+    if (monthBalanceChart instanceof HTMLElement) {
+      monthBalanceChart.removeAttribute("title");
+      monthBalanceChart.removeAttribute("aria-label");
+    }
+    const monthPlanPanel = monthBalanceChart?.closest("article");
+    if (monthPlanPanel instanceof HTMLElement) {
+      monthPlanPanel.removeAttribute("title");
+      monthPlanPanel.removeAttribute("aria-label");
+      monthPlanPanel.classList.remove("has-help");
+    }
     const previewValue = Utils.$("monthTrendPreviewValue");
     const previewMin = Utils.$("monthTrendPreviewMin");
     const previewFinal = Utils.$("monthTrendPreviewFinal");
