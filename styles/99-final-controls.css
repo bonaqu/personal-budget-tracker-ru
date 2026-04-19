@@ -320,30 +320,37 @@
     0 5px 14px rgba(4, 8, 16, 0.08) !important;
 }
 
-.journal-section .entry-row .category-trigger,
-.journal-section .entry-row .entry-field__control--category .category-trigger {
-  border-radius: 11px !important;
-  border-color: color-mix(in srgb, var(--surface-border-soft) 82%, rgba(255, 255, 255, 0.05)) !important;
+.journal-section .entry-row .entry-field__control--category {
+  border-color: color-mix(in srgb, var(--surface-border-soft) 88%, rgba(255, 255, 255, 0.05)) !important;
   background:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--surface-field-top) 84%, rgba(255, 255, 255, 0.03)),
-      color-mix(in srgb, var(--surface-field-bottom) 82%, rgba(0, 0, 0, 0.02))
+      color-mix(in srgb, var(--surface-field-top) 94%, rgba(255, 255, 255, 0.02)),
+      color-mix(in srgb, var(--surface-field-bottom) 98%, rgba(0, 0, 0, 0.03))
     ),
-    color-mix(in srgb, var(--surface-field) 74%, transparent) !important;
+    color-mix(in srgb, var(--surface-field) 92%, rgba(255, 255, 255, 0.015)) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.045),
-    0 1px 0 rgba(0, 0, 0, 0.045) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 1px 0 rgba(0, 0, 0, 0.06) !important;
+  border-radius: 11px !important;
   backdrop-filter: blur(12px) saturate(1.04);
 }
 
-.journal-section .entry-row .category-trigger:hover,
-.journal-section .entry-row .category-trigger:focus-visible {
+.journal-section .entry-row .category-trigger,
+.journal-section .entry-row .entry-field__control--category .category-trigger {
+  border: 0 !important;
+  border-radius: inherit !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.journal-section .entry-row .entry-field__control--category:has(.category-trigger:hover),
+.journal-section .entry-row .entry-field__control--category:has(.category-trigger:focus-visible) {
   border-color: color-mix(in srgb, var(--accent) 24%, var(--surface-border-soft)) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.045),
-    0 0 0 4px color-mix(in srgb, var(--accent) 8%, transparent),
-    0 2px 8px rgba(4, 8, 16, 0.05) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 0 4px color-mix(in srgb, var(--accent) 8%, transparent) !important;
 }
 
 .settings-panel--quick {
