@@ -318,8 +318,7 @@ Object.assign(UI, {
       [finalBalance, finalTooltip],
       [finalBalanceHint, finalTooltip],
       [minBalance, minTooltip],
-      [minBalanceHint, minTooltip],
-      [Utils.$("monthBalanceChart"), "График показывает движение баланса по дням месяца: синяя линия — накопленный баланс, столбцы — чистое движение денег за день, пунктир — сегодняшний день."]
+      [minBalanceHint, minTooltip]
     ].forEach(([target, text]) => this.setBudgetHelp(target, text));
     const previewValue = Utils.$("monthTrendPreviewValue");
     const previewMin = Utils.$("monthTrendPreviewMin");
