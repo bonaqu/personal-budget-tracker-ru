@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b0f14">
   <meta name="description" content="Personal Budget Tracker для России: доходы, расходы, быстрые сценарии, цели и аналитика по месяцам.">
   <title>Personal Budget Tracker</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='bg' x1='3' y1='2' x2='21' y2='22' gradientUnits='userSpaceOnUse'%3E%3Cstop stop-color='%23465360'/%3E%3Cstop offset='0.56' stop-color='%23273342'/%3E%3Cstop offset='1' stop-color='%2317232d'/%3E%3C/linearGradient%3E%3ClinearGradient id='acc' x1='16.45' y1='6' x2='16.45' y2='18.1' gradientUnits='userSpaceOnUse'%3E%3Cstop stop-color='%238ab7ff'/%3E%3Cstop offset='1' stop-color='%235dbe6b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='1.5' y='1.5' width='21' height='21' rx='6.75' fill='url(%23bg)' stroke='rgba(255,255,255,0.16)'/%3E%3Crect x='5.1' y='11' width='2.5' height='7.1' rx='1.25' fill='%23f3f8fc'/%3E%3Crect x='10.15' y='8.7' width='2.5' height='9.4' rx='1.25' fill='%23dce9fb'/%3E%3Crect x='15.2' y='6' width='2.5' height='12.1' rx='1.25' fill='url(%23acc)'/%3E%3Cpath d='M4.8 13.9L8 11.25L11 12.45L16.75 7.15' stroke='%23f4fbff' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='16.75' cy='7.15' r='1.25' fill='%238ab7ff'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='bg' x1='3' y1='2' x2='21' y2='22' gradientUnits='userSpaceOnUse'%3E%3Cstop stop-color='%23465360'/%3E%3Cstop offset='0.56' stop-color='%23273342'/%3E%3Cstop offset='1' stop-color='%2317232d'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='1.5' y='1.5' width='21' height='21' rx='6.75' fill='url(%23bg)' stroke='rgba(255,255,255,0.16)'/%3E%3Crect x='5.05' y='11.25' width='2.6' height='4.75' rx='1.3' fill='%23d7ba78'/%3E%3Crect x='9.55' y='8.6' width='2.6' height='7.4' rx='1.3' fill='%236bbf66'/%3E%3Crect x='14.05' y='5.95' width='2.6' height='10.05' rx='1.3' fill='%237eaeff'/%3E%3Cpath d='M5.1 16.55H16.85' stroke='rgba(244,251,255,0.2)' stroke-width='1' stroke-linecap='round'/%3E%3Cpath d='M5.45 13.1C7.78 12.22 9.46 11.11 10.84 9.82C12.09 8.61 13.17 7.39 16.03 6.48' stroke='%23eef3fb' stroke-width='1.45' stroke-linecap='round'/%3E%3Ccircle cx='16.22' cy='6.48' r='1.4' fill='%23eef3fb'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -48,18 +48,13 @@
         <div class="auth-brand">
           <div class="auth-brand__lockup">
             <div class="brand-mark brand-mark--hero" aria-hidden="true">
-              <svg class="brand-mark__glyph" viewBox="0 0 64 64" fill="none">
-                <defs>
-                  <linearGradient id="brandMarkAccent" x1="46" y1="14" x2="46" y2="48" gradientUnits="userSpaceOnUse">
-                    <stop stop-color="#8AB7FF"></stop>
-                    <stop offset="1" stop-color="#5DBE6B"></stop>
-                  </linearGradient>
-                </defs>
-                <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--low" x="14" y="30" width="8" height="18" rx="4"></rect>
-                <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--mid" x="28" y="22" width="8" height="26" rx="4"></rect>
-                <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--high" x="42" y="14" width="8" height="34" rx="4"></rect>
-                <path class="brand-mark__glyph-trend" d="M14 38.5L23.8 30.6L32.2 34.15L46.6 20.2"></path>
-                <circle class="brand-mark__glyph-node" cx="46.6" cy="20.2" r="3.2"></circle>
+              <svg class="brand-mark__glyph" viewBox="0 0 56 56" fill="none">
+                <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--low" x="11" y="28.5" width="6.8" height="12.5" rx="3.4"></rect>
+                <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--mid" x="22.8" y="21.5" width="6.8" height="19.5" rx="3.4"></rect>
+                <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--high" x="34.6" y="14.5" width="6.8" height="26.5" rx="3.4"></rect>
+                <path class="brand-mark__glyph-base" d="M11 42.2H44"></path>
+                <path class="brand-mark__glyph-trend" d="M12 33.4C18.1 31.1 22.5 28.2 26.1 24.8C29.4 21.6 32.2 18.4 39.7 16"></path>
+                <circle class="brand-mark__glyph-node" cx="40.2" cy="16" r="3.4"></circle>
               </svg>
             </div>
             <div class="auth-brand__copy">
@@ -123,26 +118,20 @@
       <div class="sidebar__inner">
         <section class="sidebar__card sidebar__card--brand">
           <div class="sidebar__row">
-            <button class="icon-btn icon-btn--tiny sidebar__toggle" id="sidebarToggleBtn" type="button" aria-label="Свернуть или развернуть боковую панель" aria-expanded="false">
-              <span id="sidebarToggleIcon">←</span>
+            <button class="sidebar__brand-toggle" id="sidebarToggleBtn" type="button" aria-label="Свернуть боковую панель" aria-expanded="false" title="Свернуть боковую панель">
+              <span class="brand-mark" aria-hidden="true">
+                <svg class="brand-mark__glyph" viewBox="0 0 56 56" fill="none">
+                  <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--low" x="11" y="28.5" width="6.8" height="12.5" rx="3.4"></rect>
+                  <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--mid" x="22.8" y="21.5" width="6.8" height="19.5" rx="3.4"></rect>
+                  <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--high" x="34.6" y="14.5" width="6.8" height="26.5" rx="3.4"></rect>
+                  <path class="brand-mark__glyph-base" d="M11 42.2H44"></path>
+                  <path class="brand-mark__glyph-trend" d="M12 33.4C18.1 31.1 22.5 28.2 26.1 24.8C29.4 21.6 32.2 18.4 39.7 16"></path>
+                  <circle class="brand-mark__glyph-node" cx="40.2" cy="16" r="3.4"></circle>
+                </svg>
+              </span>
             </button>
 
             <div class="sidebar__brand">
-              <div class="brand-mark" aria-hidden="true">
-                <svg class="brand-mark__glyph" viewBox="0 0 64 64" fill="none">
-                  <defs>
-                    <linearGradient id="brandMarkAccent" x1="46" y1="14" x2="46" y2="48" gradientUnits="userSpaceOnUse">
-                      <stop stop-color="#8AB7FF"></stop>
-                      <stop offset="1" stop-color="#5DBE6B"></stop>
-                    </linearGradient>
-                  </defs>
-                  <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--low" x="14" y="30" width="8" height="18" rx="4"></rect>
-                  <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--mid" x="28" y="22" width="8" height="26" rx="4"></rect>
-                  <rect class="brand-mark__glyph-bar brand-mark__glyph-bar--high" x="42" y="14" width="8" height="34" rx="4"></rect>
-                  <path class="brand-mark__glyph-trend" d="M14 38.5L23.8 30.6L32.2 34.15L46.6 20.2"></path>
-                  <circle class="brand-mark__glyph-node" cx="46.6" cy="20.2" r="3.2"></circle>
-                </svg>
-              </div>
               <div class="sidebar__brand-copy">
                 <h1>Personal Budget Tracker</h1>
               </div>

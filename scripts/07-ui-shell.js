@@ -949,13 +949,12 @@ Object.assign(UI, {
       return;
     }
     shell.classList.toggle("is-sidebar-collapsed", Boolean(collapsed));
-    const icon = Utils.$("sidebarToggleIcon");
-    if (icon) {
-      icon.textContent = collapsed ? "→" : "←";
-    }
     const toggle = Utils.$("sidebarToggleBtn");
     if (toggle) {
       toggle.setAttribute("aria-expanded", String(!collapsed));
+      const nextLabel = collapsed ? "Открыть боковую панель" : "Свернуть боковую панель";
+      toggle.setAttribute("aria-label", nextLabel);
+      toggle.title = nextLabel;
     }
     Storage.writeText(CONFIG.SIDEBAR_KEY, collapsed ? "1" : "0");
     this.scheduleChartResize();

@@ -408,28 +408,34 @@ body.app-ready .app-shell {
 }
 
 .brand-mark__glyph-bar--low {
-  fill: rgba(243, 248, 252, 0.94);
+  fill: #d7ba78;
 }
 
 .brand-mark__glyph-bar--mid {
-  fill: rgba(220, 234, 252, 0.88);
+  fill: #6bbf66;
 }
 
 .brand-mark__glyph-bar--high {
-  fill: url(#brandMarkAccent);
+  fill: #7eaeff;
+}
+
+.brand-mark__glyph-base {
+  stroke: rgba(244, 251, 255, 0.2);
+  stroke-width: 2.2;
+  stroke-linecap: round;
 }
 
 .brand-mark__glyph-trend {
   stroke: rgba(244, 251, 255, 0.98);
-  stroke-width: 4.5;
+  stroke-width: 3.1;
   stroke-linecap: round;
   stroke-linejoin: round;
   filter: drop-shadow(0 6px 14px rgba(7, 14, 24, 0.22));
 }
 
 .brand-mark__glyph-node {
-  fill: rgba(138, 183, 255, 0.98);
-  filter: drop-shadow(0 0 10px rgba(122, 185, 255, 0.42));
+  fill: rgba(244, 251, 255, 0.98);
+  filter: drop-shadow(0 0 10px rgba(244, 251, 255, 0.24));
 }
 
 .auth-brand h1,

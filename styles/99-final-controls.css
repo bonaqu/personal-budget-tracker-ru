@@ -17,6 +17,46 @@
   border-radius: var(--sidebar-control-radius) !important;
 }
 
+.sidebar__brand-toggle {
+  appearance: none !important;
+  border: 0 !important;
+  background: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: var(--sidebar-control-square) !important;
+  min-width: var(--sidebar-control-square) !important;
+  height: var(--sidebar-control-square) !important;
+  min-height: var(--sidebar-control-square) !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  justify-self: center !important;
+  align-self: center !important;
+}
+
+.sidebar__brand-toggle .brand-mark {
+  width: var(--sidebar-control-square) !important;
+  height: var(--sidebar-control-square) !important;
+  border-radius: 15px !important;
+  padding: 8px !important;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, transform 0.18s ease !important;
+}
+
+.sidebar__brand-toggle:hover .brand-mark,
+.sidebar__brand-toggle:focus-visible .brand-mark {
+  border-color: color-mix(in srgb, var(--accent) 26%, var(--surface-border-soft)) !important;
+  background:
+    radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.12), transparent 28%),
+    radial-gradient(circle at 78% 82%, color-mix(in srgb, var(--accent) 30%, rgba(46, 160, 67, 0.16)), transparent 34%),
+    linear-gradient(156deg, rgba(102, 117, 135, 0.24), rgba(40, 54, 69, 0.42) 54%, rgba(22, 31, 39, 0.38)),
+    rgba(255, 255, 255, 0.05) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -14px 28px rgba(0, 0, 0, 0.12),
+    0 12px 24px rgba(5, 10, 20, 0.22),
+    0 0 0 4px var(--focus-ring) !important;
+  transform: translateY(-1px);
+}
+
 .sidebar__utility-btn,
 .sidebar-nav .tabbar__btn,
 .sidebar__account-btn {
@@ -53,7 +93,8 @@
 .sidebar__card--brand .sidebar__row {
   min-height: var(--sidebar-control-square) !important;
   grid-template-columns: var(--sidebar-control-square) minmax(0, 1fr) !important;
-  gap: 10px !important;
+  gap: 12px !important;
+  padding-inline: 0 !important;
   align-items: center !important;
 }
 
@@ -87,9 +128,11 @@
   min-height: var(--sidebar-control-square) !important;
   grid-template-columns: 1fr !important;
   justify-items: center !important;
+  padding-inline: 0 !important;
 }
 
 .app-shell.is-sidebar-collapsed .sidebar__toggle,
+.app-shell.is-sidebar-collapsed .sidebar__brand-toggle,
 .app-shell.is-sidebar-collapsed .sidebar__utility-btn,
 .app-shell.is-sidebar-collapsed .sidebar__account-btn,
 .app-shell.is-sidebar-collapsed .sync-pill,
@@ -105,6 +148,14 @@
   align-items: center !important;
   gap: 0 !important;
   border-radius: var(--sidebar-control-radius) !important;
+}
+
+.app-shell.is-sidebar-collapsed .sidebar__brand-toggle {
+  width: var(--sidebar-control-square) !important;
+  min-width: var(--sidebar-control-square) !important;
+  max-width: var(--sidebar-control-square) !important;
+  height: var(--sidebar-control-square) !important;
+  min-height: var(--sidebar-control-square) !important;
 }
 
 .app-shell.is-sidebar-collapsed .sidebar__utility-btn .sidebar-nav__icon,
@@ -146,6 +197,10 @@
     justify-items: stretch !important;
     align-items: center !important;
     gap: 10px !important;
+  }
+
+  .sidebar__brand-toggle {
+    justify-self: start !important;
   }
 
   .app-shell.is-sidebar-collapsed .sidebar__brand {
