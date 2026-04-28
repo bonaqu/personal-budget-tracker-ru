@@ -948,6 +948,8 @@ Object.assign(UI, {
     if (!shell) {
       return;
     }
+    clearTimeout(this.sidebarToggleSettledTimer || 0);
+    shell.classList.add("is-sidebar-toggling");
     shell.classList.toggle("is-sidebar-collapsed", Boolean(collapsed));
     const toggle = Utils.$("sidebarToggleBtn");
     if (toggle) {
@@ -962,6 +964,9 @@ Object.assign(UI, {
     this.sidebarToggleRefreshFrame = requestAnimationFrame(() => {
       this.scheduleChartResize();
     });
+    this.sidebarToggleSettledTimer = window.setTimeout(() => {
+      shell.classList.remove("is-sidebar-toggling");
+    }, 280);
   },
 
   toggleSidebar() {
