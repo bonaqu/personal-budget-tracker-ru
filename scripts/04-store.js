@@ -81,9 +81,22 @@ const Store = {
     const categories = new Map(this.data.settings.categories.map((item) => [item.id, item.name || ""]));
     const nextIndex = new Map();
     this.data.transactions.forEach((transaction) => {
+      const amount = Utils.roundMoney(Utils.safeNumber(transaction.amount));
+      const amountText = String(amount);
+      const amountIntegerText = String(Math.trunc(amount));
+      const amountCommaText = amountText.replace(".", ",");
       nextIndex.set(
         transaction.id,
-        Utils.normalizeLookupKey(`${transaction.description || ""} ${categories.get(transaction.categoryId) || ""}`)
+        Utils.normalizeLookupKey(
+          [
+            transaction.description || "",
+            categories.get(transaction.categoryId) || "",
+            amountText,
+            amountIntegerText,
+            amountCommaText,
+            Utils.formatMoney(amount)
+          ].join(" ")
+        )
       );
     });
     this.searchIndex = nextIndex;
@@ -1246,7 +1259,7 @@ const Store = {
       ? Utils.todayISO()
       : `${this.viewMonth}-${String(Math.min(28, today.getDate())).padStart(2, "0")}`;
     this.mutate((draft) => {
-      let positionCursor = getTopInsertPosition(
+      let positionCursor = getBottomInsertPosition(
         draft.transactions.filter((item) => item.date.slice(0, 7) === targetDate.slice(0, 7)),
         ids.length
       );
@@ -1270,7 +1283,7 @@ const Store = {
                 ? this.getDefaultCategoryId("recurring")
                 : this.getDefaultCategoryId("expenses");
         }
-        draft.transactions.unshift({
+        draft.transactions.push({
           id: Utils.uid("tx"),
           type,
           flowKind,
@@ -1293,7 +1306,7 @@ const Store = {
       ? Utils.todayISO()
       : `${this.viewMonth}-${String(Math.min(28, today.getDate())).padStart(2, "0")}`;
     this.mutate((draft) => {
-      let positionCursor = getTopInsertPosition(
+      let positionCursor = getBottomInsertPosition(
         draft.transactions.filter((item) => item.date.slice(0, 7) === targetDate.slice(0, 7)),
         ids.length
       );
@@ -1302,7 +1315,7 @@ const Store = {
         if (!item) {
           return;
         }
-        draft.transactions.unshift({
+        draft.transactions.push({
           id: Utils.uid("tx"),
           type: "expense",
           flowKind: "standard",

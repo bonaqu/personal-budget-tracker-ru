@@ -957,8 +957,11 @@ Object.assign(UI, {
       toggle.title = nextLabel;
     }
     Storage.writeText(CONFIG.SIDEBAR_KEY, collapsed ? "1" : "0");
-    this.scheduleChartResize();
-    App.runAfterNextPaint(() => this.syncActiveTabLayout(), 2);
+    cancelAnimationFrame(this.sidebarToggleRefreshFrame || 0);
+    this.syncActiveTabLayout();
+    this.sidebarToggleRefreshFrame = requestAnimationFrame(() => {
+      this.scheduleChartResize();
+    });
   },
 
   toggleSidebar() {
