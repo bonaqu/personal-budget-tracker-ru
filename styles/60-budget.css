@@ -43,22 +43,6 @@
   line-height: 1.04;
 }
 
-.hero-strip__badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 28px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--surface-border-soft));
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface-card-soft));
-  color: var(--text-main);
-  font-size: 0.73rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .hero-strip__caption {
   margin: 0;
   max-width: 64ch;
