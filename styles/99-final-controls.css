@@ -27,17 +27,6 @@
   transition: opacity 0.14s ease, transform 0.18s ease !important;
 }
 
-.app-shell.is-sidebar-toggling .sidebar__card {
-  border-color: color-mix(in srgb, var(--surface-border-soft) 62%, transparent) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.035),
-    0 8px 18px rgba(3, 6, 14, 0.07) !important;
-}
-
-.app-shell.is-sidebar-toggling .sidebar__card::after {
-  opacity: 0.42 !important;
-}
-
 .sidebar__toggle,
 .sidebar__utility-btn,
 .sidebar-nav .tabbar__btn,
@@ -1662,6 +1651,48 @@
     inset 0 -14px 28px rgba(0, 0, 0, 0.12),
     0 12px 24px rgba(5, 10, 20, 0.18),
     0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent) !important;
+}
+
+.sidebar .sidebar__card,
+.sidebar .sidebar__footer,
+.sidebar .sidebar__card--brand:hover,
+.sidebar .sidebar__card--brand:focus-within,
+.app-shell.is-sidebar-collapsed .sidebar__card--brand,
+.app-shell.is-sidebar-collapsed .sidebar__card--history,
+.app-shell.is-sidebar-collapsed .sidebar__card--nav,
+.app-shell.is-sidebar-collapsed .sidebar__card--status,
+.app-shell.is-sidebar-collapsed .sidebar__footer,
+.app-shell.is-sidebar-toggling .sidebar__card,
+.app-shell.is-sidebar-toggling .sidebar__footer,
+.app-shell.is-sidebar-toggling .sidebar__card--brand:hover,
+.app-shell.is-sidebar-toggling .sidebar__card--brand:focus-within {
+  border-color: rgba(255, 255, 255, 0.055) !important;
+  outline: none !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.035),
+    0 8px 18px rgba(3, 6, 14, 0.07) !important;
+}
+
+.sidebar .sidebar__card::after,
+.app-shell.is-sidebar-toggling .sidebar__card::after {
+  opacity: 0.24 !important;
+}
+
+.app-shell.is-sidebar-toggling .sidebar .sidebar__card,
+.app-shell.is-sidebar-toggling .sidebar .sidebar__footer,
+.app-shell.is-sidebar-toggling .sidebar__brand-toggle .brand-mark {
+  transition: none !important;
+}
+
+.app-shell.is-sidebar-toggling .sidebar__brand-toggle .brand-mark,
+.app-shell.is-sidebar-toggling .sidebar__brand-toggle:hover .brand-mark,
+.app-shell.is-sidebar-toggling .sidebar__brand-toggle:focus-visible .brand-mark,
+.app-shell.is-sidebar-toggling .sidebar__brand-toggle:active .brand-mark {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -14px 28px rgba(0, 0, 0, 0.12),
+    0 12px 24px rgba(5, 10, 20, 0.18) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

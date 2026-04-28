@@ -966,7 +966,7 @@ Object.assign(UI, {
     });
     this.sidebarToggleSettledTimer = window.setTimeout(() => {
       shell.classList.remove("is-sidebar-toggling");
-    }, 280);
+    }, 420);
   },
 
   toggleSidebar() {
