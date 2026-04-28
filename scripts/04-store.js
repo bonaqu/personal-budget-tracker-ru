@@ -84,22 +84,85 @@ const Store = {
       const amount = Utils.roundMoney(Utils.safeNumber(transaction.amount));
       const amountText = String(amount);
       const amountIntegerText = String(Math.trunc(amount));
+      const amountFixedText = amount.toFixed(2);
       const amountCommaText = amountText.replace(".", ",");
-      nextIndex.set(
-        transaction.id,
-        Utils.normalizeLookupKey(
-          [
-            transaction.description || "",
-            categories.get(transaction.categoryId) || "",
-            amountText,
-            amountIntegerText,
-            amountCommaText,
-            Utils.formatMoney(amount)
-          ].join(" ")
-        )
-      );
+      const textSource = [
+        transaction.description || "",
+        categories.get(transaction.categoryId) || ""
+      ].join(" ");
+      const textTokens = textSource
+        .toLowerCase()
+        .replace(/\u0451/g, "\u0435")
+        .split(/[^a-z\u0430-\u044f0-9]+/gi)
+        .map((item) => Utils.normalizeLookupKey(item))
+        .filter(Boolean);
+      nextIndex.set(transaction.id, {
+        textFields: [
+          Utils.normalizeLookupKey(transaction.description || ""),
+          Utils.normalizeLookupKey(categories.get(transaction.categoryId) || "")
+        ].filter(Boolean),
+        textTokens,
+        amount,
+        amountIntegerText: Utils.normalizeLookupKey(amountIntegerText),
+        amountFields: Array.from(new Set([
+          amountText,
+          amountIntegerText,
+          amountFixedText,
+          amountCommaText,
+          amountFixedText.replace(".", ","),
+          Utils.formatMoney(amount)
+        ].map((item) => Utils.normalizeLookupKey(item)).filter(Boolean)))
+      });
     });
     this.searchIndex = nextIndex;
+  },
+
+  parseSearchAmount(rawSearch) {
+    const raw = String(rawSearch || "").trim();
+    if (!raw || /[a-z\u0430-\u044f]/i.test(raw.replace(/руб(?:\.|лей|ля|ль)?/giu, ""))) {
+      return null;
+    }
+    const compact = raw
+      .replace(/\s+/g, "")
+      .replace(/₽/g, "")
+      .replace(/руб(?:\.|лей|ля|ль)?/giu, "")
+      .replace(",", ".");
+    if (!/^\d+(?:\.\d{1,2})?$/.test(compact)) {
+      return null;
+    }
+    return Utils.roundMoney(Number(compact));
+  },
+
+  getSearchMatch(transaction, rawSearch, normalizedSearch = Utils.normalizeLookupKey(rawSearch)) {
+    if (!normalizedSearch) {
+      return { matched: true, score: 0 };
+    }
+
+    const entry = this.searchIndex.get(transaction.id);
+    if (!entry) {
+      return { matched: false, score: 0 };
+    }
+
+    const amountQuery = this.parseSearchAmount(rawSearch);
+    if (amountQuery !== null) {
+      const hasDecimalQuery = /[,.]\d/.test(String(rawSearch || ""));
+      const amountMatched = hasDecimalQuery
+        ? Math.abs(entry.amount - amountQuery) < 0.001
+        : Number(entry.amountIntegerText) === amountQuery;
+      const textMatched = entry.textTokens.includes(normalizedSearch);
+      return {
+        matched: amountMatched || textMatched,
+        score: amountMatched ? 100 : (textMatched ? 70 : 0)
+      };
+    }
+
+    const textScore = entry.textFields.some((field) => field.includes(normalizedSearch)) ? 80 : 0;
+    const amountScore = entry.amountFields.some((field) => field.includes(normalizedSearch)) ? 60 : 0;
+    const score = Math.max(textScore, amountScore);
+    return {
+      matched: score > 0,
+      score
+    };
   },
 
   captureSnapshot() {
@@ -326,8 +389,10 @@ const Store = {
   },
 
   getFilteredTransactions() {
-    const search = Utils.normalizeLookupKey(this.filters.search);
+    const rawSearch = String(this.filters.search || "");
+    const search = Utils.normalizeLookupKey(rawSearch);
     const period = this.filters.period === "all" ? "all" : "month";
+    const searchScores = new Map();
     const list = this.getTransactions(period, this.viewMonth).filter((transaction) => {
       if (this.filters.type !== "all" && transaction.type !== this.filters.type) {
         return false;
@@ -344,7 +409,11 @@ const Store = {
       if (!search) {
         return true;
       }
-      return (this.searchIndex.get(transaction.id) || "").includes(search);
+      const match = this.getSearchMatch(transaction, rawSearch, search);
+      if (match.matched) {
+        searchScores.set(transaction.id, match.score);
+      }
+      return match.matched;
     });
 
     const sortMap = {
@@ -354,7 +423,16 @@ const Store = {
       "amount-asc": (a, b) => a.amount - b.amount
     };
 
-    return list.sort(sortMap[this.filters.sort] || sortMap["date-desc"]);
+    const sortTransactions = sortMap[this.filters.sort] || sortMap["date-desc"];
+    return list.sort((a, b) => {
+      if (search) {
+        const scoreDelta = (searchScores.get(b.id) || 0) - (searchScores.get(a.id) || 0);
+        if (scoreDelta) {
+          return scoreDelta;
+        }
+      }
+      return sortTransactions(a, b);
+    });
   },
 
   totalsFor(transactions) {

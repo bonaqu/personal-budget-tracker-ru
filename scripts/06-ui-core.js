@@ -5,6 +5,7 @@ const UI = {
     monthBalance: null
   },
   chartResizeFrame: 0,
+  scrollTopFrame: 0,
   chartLibraryPromise: null,
   chartWarmupScheduled: false,
   chartSizeCache: new WeakMap(),
@@ -134,6 +135,29 @@ const UI = {
 
   isOverviewChartVisible() {
     return Store.activeTab === "overviewTab";
+  },
+
+  updateScrollTopButton() {
+    const button = Utils.$("scrollTopBtn");
+    if (!button) {
+      return;
+    }
+    const appVisible = !Utils.$("appShell")?.classList.contains("is-hidden");
+    const threshold = Math.max(520, Math.round((window.innerHeight || 0) * 0.65));
+    const shouldShow = Boolean(appVisible && window.scrollY > threshold);
+    button.classList.toggle("is-visible", shouldShow);
+    button.setAttribute("aria-hidden", shouldShow ? "false" : "true");
+    button.tabIndex = shouldShow ? 0 : -1;
+  },
+
+  scheduleScrollTopButtonUpdate() {
+    if (this.scrollTopFrame) {
+      return;
+    }
+    this.scrollTopFrame = requestAnimationFrame(() => {
+      this.scrollTopFrame = 0;
+      this.updateScrollTopButton();
+    });
   },
 
   shouldRunChartResize() {
@@ -1395,6 +1419,16 @@ const UI = {
             this.toggleMobileQuickAdd();
             return;
           }
+          if (action === "scroll-to-top") {
+            actionButton.blur?.();
+            window.scrollTo({
+              top: 0,
+              left: 0,
+              behavior: this.prefersReducedMotion() ? "auto" : "smooth"
+            });
+            this.scheduleScrollTopButtonUpdate();
+            return;
+          }
           if (action === "close-mobile-quick-add") {
             this.setMobileQuickAddOpen(false);
             return;
@@ -1587,10 +1621,12 @@ const UI = {
     window.addEventListener("resize", () => {
       this.positionBudgetNumpad();
       this.positionBudgetDayPad();
+      this.scheduleScrollTopButtonUpdate();
     });
     document.addEventListener("scroll", () => {
       this.positionBudgetNumpad();
       this.positionBudgetDayPad();
+      this.scheduleScrollTopButtonUpdate();
     }, true);
 
     document.addEventListener("keydown", (event) => {

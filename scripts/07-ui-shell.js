@@ -738,6 +738,7 @@ Object.assign(UI, {
   showApp() {
     Utils.$("authScreen").classList.add("is-hidden");
     Utils.$("appShell").classList.remove("is-hidden");
+    this.scheduleScrollTopButtonUpdate();
   },
 
   showStartupAuth() {
@@ -745,6 +746,7 @@ Object.assign(UI, {
     Utils.$("authScreen").classList.remove("is-hidden");
     this.clearAuthStatus("startup");
     this.syncAllAuthFields();
+    this.scheduleScrollTopButtonUpdate();
   },
 
   finishBoot() {
