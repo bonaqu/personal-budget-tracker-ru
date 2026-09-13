@@ -1,0 +1,35 @@
+name: Production health
+
+on:
+  schedule:
+    - cron: "37 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Check ${{ matrix.frontend }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        frontend:
+          - https://personal-budget-tracker-ru.pages.dev/
+          - https://bonaqu.github.io/personal-budget-tracker-ru/
+    steps:
+      - name: Checkout smoke test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+      - name: Check frontend, offline shell and API readiness
+        run: node tests/production-smoke.mjs
+        env:
+          FRONTEND_URL: ${{ matrix.frontend }}
+          API_URL: https://personal-budget-api.bonaqu.workers.dev
